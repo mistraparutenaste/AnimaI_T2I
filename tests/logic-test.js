@@ -172,6 +172,22 @@ check('n_body_type has large areolae (danbooru official)', hasNsfwTag('n_body_ty
 check('no big areolae alias remains', !hasNsfwTag('n_body_type', 'big areolae'));
 check('n_accessories has tail plug', hasNsfwTag('n_accessories', 'tail plug'));
 check('n_nsfw has panties aside', hasNsfwTag('n_nsfw', 'panties aside'));
+// male-receiving (男性受け) ejaculation scenarios
+check('n_situation has defeat ejaculation', hasNsfwTag('n_situation', 'defeat, ejaculation'));
+check('n_situation has ejaculating while penetrated', hasNsfwTag('n_situation', 'ejaculating while penetrated'));
+check('n_situation has ruined orgasm', hasNsfwTag('n_situation', 'ruined orgasm'));
+check('n_situation has forced orgasm', hasNsfwTag('n_situation', 'forced orgasm'));
+check('n_situation has fucked silly', hasNsfwTag('n_situation', 'fucked silly'));
+// gap-fill: 男性受け直結 + 一般NSFW欠落タグの補完
+check('n_situation has pegging', hasNsfwTag('n_situation', 'pegging'));
+check('n_situation has futa on male', hasNsfwTag('n_situation', 'futa on male'));
+check('n_situation has netorare', hasNsfwTag('n_situation', 'netorare'));
+check('n_body_type has otoko no ko', hasNsfwTag('n_body_type', 'otoko no ko'));
+check('n_body_type has large penis', hasNsfwTag('n_body_type', 'large penis'));
+check('n_expression has mind break', hasNsfwTag('n_expression', 'mind break'));
+check('n_expression has torogao', hasNsfwTag('n_expression', 'torogao'));
+check('n_accessories has chastity cage', hasNsfwTag('n_accessories', 'chastity cage'));
+check('n_nsfw has naked apron', hasNsfwTag('n_nsfw', 'naked apron'));
 
 // ---- random (lock-aware) ----
 console.log('Random (lock-aware):');
