@@ -20,6 +20,11 @@
                     <p class="subtitle">クリックでつくる画像生成AIプロンプト作成ツール</p>
                 </div>
                 <div class="header-controls">
+                    <div class="model-select-group">
+                        <label for="model-select">モデル</label>
+                        <select id="model-select" title="生成モデルを選択"></select>
+                    </div>
+                    <button id="preset-edit-btn" class="btn btn-secondary btn-sm" title="モデルプリセットを編集">⚙️ プリセット編集</button>
                     <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマを切り替え">
                         <span class="theme-icon-sun">☀️</span>
                         <span class="theme-icon-moon" style="display: none;">🌙</span>
@@ -27,7 +32,7 @@
                     <label class="switch-container">
                         <input type="checkbox" id="nsfw-toggle">
                         <span class="switch-slider"></span>
-                        <span class="switch-label">NSFWタグを表示</span>
+                        <span class="switch-label">NSFW</span>
                     </label>
                 </div>
             </div>
@@ -37,35 +42,41 @@
         <main class="app-main">
             <!-- 左側：タグ選択エリア -->
             <section class="tag-selection-section">
+                <!-- 検索 -->
+                <div class="search-bar">
+                    <input type="text" id="tag-search-input" placeholder="タグを検索 (日本語/英語)...">
+                    <button id="tag-search-clear" class="btn btn-secondary btn-sm">✕</button>
+                    <button id="random-btn" class="btn btn-primary btn-sm" title="ロックしていないカテゴリからランダム選択">🎲 おまかせ</button>
+                </div>
+
+                <!-- 複数キャラ用スロットバー -->
+                <div class="char-slot-bar" id="char-slot-bar" style="display:none;">
+                    <span class="char-slot-label">タグ追加先:</span>
+                    <button class="char-slot-pill active" data-slot="0">共通</button>
+                    <button class="char-slot-pill" data-slot="1">キャラ1</button>
+                    <button class="char-slot-pill" data-slot="2">キャラ2</button>
+                    <button class="char-slot-pill" data-slot="3">キャラ3</button>
+                </div>
+
                 <!-- タブメニュー -->
                 <div class="tab-container">
-                    <button class="tab-btn active" data-tab="sfw">ポジティブプロンプト (通常)</button>
-                    <button class="tab-btn" data-tab="nsfw" id="nsfw-tab-btn" style="display: none;">ポジティブプロンプト (NSFW)</button>
-                    <button class="tab-btn" data-tab="negative">ネガティブプロンプト</button>
+                    <button class="tab-btn active" data-tab="sfw">ポジティブ (通常)</button>
+                    <button class="tab-btn" data-tab="nsfw" id="nsfw-tab-btn" style="display: none;">ポジティブ (NSFW)</button>
+                    <button class="tab-btn" data-tab="negative">ネガティブ</button>
                 </div>
 
                 <!-- 各タブのコンテンツ -->
                 <div class="tab-panels">
-                    <!-- SFWパネル -->
                     <div class="tab-panel active" id="panel-sfw">
                         <div class="category-grid" id="sfw-categories">
-                            <!-- JSで動的に追加されます -->
                             <div class="loading">データを読み込んでいます...</div>
                         </div>
                     </div>
-
-                    <!-- NSFWパネル -->
                     <div class="tab-panel" id="panel-nsfw">
-                        <div class="category-grid" id="nsfw-categories">
-                            <!-- JSで動的に追加されます -->
-                        </div>
+                        <div class="category-grid" id="nsfw-categories"></div>
                     </div>
-
-                    <!-- ネガティブパネル -->
                     <div class="tab-panel" id="panel-negative">
-                        <div class="category-grid" id="negative-categories">
-                            <!-- JSで動的に追加されます -->
-                        </div>
+                        <div class="category-grid" id="negative-categories"></div>
                     </div>
                 </div>
             </section>
@@ -76,30 +87,55 @@
                     <!-- お気に入りプリセット -->
                     <div class="preview-card" id="favorites-card">
                         <div class="preview-header">
-                            <h2>お気に入りセット (Favorites)</h2>
-                            <div class="badge favorites-badge" id="open-favorites-btn" style="cursor: pointer;" title="保存フォルダを開く">保存フォルダ</div>
+                            <h2>お気に入り (Favorites)</h2>
+                            <div class="favorites-actions-inline">
+                                <button id="export-favorites-btn" class="btn btn-secondary btn-sm" title="JSONで書き出し">📤 エクスポート</button>
+                                <button id="import-favorites-btn" class="btn btn-secondary btn-sm" title="JSONを読み込み">📥 インポート</button>
+                                <input type="file" id="import-favorites-file" accept=".json" style="display:none;">
+                            </div>
                         </div>
                         <div class="favorites-container">
-                            <div class="favorites-list" id="favorites-list">
-                                <div class="no-favorites">保存されたお気に入りはまだありません。</div>
-                            </div>
+                            <div class="favorites-list" id="favorites-list"></div>
                         </div>
                         <div class="favorites-actions">
                             <div class="manual-input-group">
-                                <input type="text" id="favorite-name-input" placeholder="お気に入りの名前を入力...">
-                                <button id="save-favorite-btn">現在を保存</button>
+                                <input type="text" id="favorite-name-input" placeholder="お気に入りの名前...">
+                                <button id="save-favorite-btn">保存</button>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- 選択中タグチップス -->
+                    <div class="preview-card" id="chips-card">
+                        <div class="preview-header">
+                            <h2>選択中タグ</h2>
+                            <label class="mini-toggle">
+                                <input type="checkbox" id="multichar-toggle">
+                                <span>複数キャラ</span>
+                            </label>
+                        </div>
+                        <div id="selected-chips" class="chips-container"></div>
                     </div>
 
                     <!-- ポジティブプロンプトプレビュー -->
                     <div class="preview-card" id="positive-preview-card">
                         <div class="preview-header">
-                            <h2>ポジティブプロンプト (Positive Prompt)</h2>
-                            <div class="badge positive-badge">SFW</div>
+                            <h2>ポジティブプロンプト</h2>
+                            <div class="badge positive-badge" id="model-badge">SFW</div>
                         </div>
                         <div class="textarea-wrapper">
                             <textarea id="positive-prompt-output" readonly placeholder="タグを選択すると、ここにプロンプトが自動生成されます..."></textarea>
+                        </div>
+                        <div class="preview-meta">
+                            <span id="pos-token-count" class="token-count">約 0 / 75 トークン</span>
+                            <label class="mini-toggle" title="safe/nsfwタグを自動挿入">
+                                <input type="checkbox" id="rating-auto-toggle" checked>
+                                <span>レーティング自動</span>
+                            </label>
+                            <label class="mini-toggle" title="モデル推奨の品質・年代タグを自動挿入">
+                                <input type="checkbox" id="quality-auto-toggle" checked>
+                                <span>品質タグ自動</span>
+                            </label>
                         </div>
                         <div class="preview-actions">
                             <div class="manual-input-group">
@@ -116,13 +152,17 @@
                         </div>
                     </div>
 
-                    <!-- ネガティブプロンプトプレビュー -->
+                    <!-- ポジティブプロンプトプレビュー -->
                     <div class="preview-card">
                         <div class="preview-header">
-                            <h2>ネガティブプロンプト (Negative Prompt)</h2>
+                            <h2>ネガティブプロンプト</h2>
+                            <button id="add-recommended-negative-btn" class="btn btn-secondary btn-sm" title="選択中モデルの推奨ネガティブを追加">＋ 推奨ネガ</button>
                         </div>
                         <div class="textarea-wrapper">
                             <textarea id="negative-prompt-output" readonly placeholder="ネガティブタグを選択すると、ここにプロンプトが自動生成されます..."></textarea>
+                        </div>
+                        <div class="preview-meta">
+                            <span id="neg-token-count" class="token-count">約 0 / 75 トークン</span>
                         </div>
                         <div class="preview-actions">
                             <div class="manual-input-group">
@@ -142,11 +182,23 @@
             </section>
         </main>
 
-        <!-- フッター -->
+        <!-- プリセット編集モーダル -->
+        <div id="preset-modal" class="modal-backdrop" style="display:none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>モデルプリセット編集</h2>
+                    <button id="preset-modal-close" class="btn btn-secondary btn-sm">閉じる</button>
+                </div>
+                <p class="modal-note">品質タグ・年代タグは「品質タグ自動」がONのときプロンプト末尾に付与されます。変更は自動保存されます。</p>
+                <div id="preset-editor-list"></div>
+            </div>
+        </div>
+
         <footer class="app-footer">
-            <p>&copy; 2026 AnimaI T2I. Created for beautiful generation.</p>
+            <p>AnimaI T2I v2 — Danbooruタグベースのプロンプトビルダー (Illustrious / NoobAI / Animagine 対応)</p>
         </footer>
     </div>
+    <script src="prompts-data.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

@@ -2,19 +2,66 @@
   <img src="logo.png" alt="AnimaI T2I Logo" width="400" />
 </div>
 
-# AnimaI T2I
+# AnimaI T2I v2
 
-画像生成AIのプロンプトをクリックだけで簡単に構築し、コピーできるツールです。
-CSVファイルを編集することで、独自のタグを自由に追加・管理できます。
+画像生成AIのプロンプトをクリックだけで構築できるツールです。**単一HTMLファイル**で動作し、サーバー不要。
+
+Danbooruタグ文化に基づく**モデル別プロンプト最適化**(Illustrious / NoobAI / Animagine)に対応しています。
 
 ## 起動方法
 
-AnimaI.zipをダウンロードして、exeを起動してください。
+- **配布版**: `dist/AnimaI.html` をダブルクリックするだけ(全機能内蔵・単一ファイル)
+- **開発版**: ルートの `index.html` をブラウザで開く(`prompts-data.js` が必要)
 
-## プロンプトの追加
-csvファイルを編集して、プロンプトの追加を行えます。
-日本語名|prompt
+## 主な機能
+
+| 機能 | 説明 |
+|---|---|
+| モデルプリセット | Illustrious XL / NoobAI XL / Animagine XL 4.0 / カスタム の推奨品質タグ・ネガティブをワンクリック適用。⚙️ボタンで編集可 |
+| 自動ソートエンジン | 選択タグをモデル別の最適順(主体→キャラ→レーティング→容姿→衣装→構図→背景→品質→年代)に自動並び替え |
+| レーティング自動挿入 | NSFWトグルに連動して `safe` / `nsfw` を自動挿入(設定でOFF可) |
+| 重み構文 | 選択タグチップの +/− で `(tag:1.2)` 形式の重みを調整 |
+| トークンカウンタ | CLIP 77トークン上限の概算をリアルタイム表示・警告 |
+| 複数キャラ | 最大3キャラのスロット分割 → `BREAK` 区切りで出力(Forge Couple / REGION対応) |
+| おまかせ生成 🎲 | カテゴリ単位のランダム抽選。🔒ロックしたタグは引き継ぎ |
+| 検索 | 日本語・英語の部分一致でタグを絞り込み |
+| お気に入り | localStorage保存 + JSONエクスポート/インポート |
+
+## タグデータの編集
+
+`csv/` フォルダのCSVを編集します。形式:
+
+```csv
+Japanese,Prompt,weight(省略可)
+女の子1人,1girl
+ロングヘア,long hair,1.2
+```
+
+- 2列目にカンマ区切りで複数タグを指定可能
+- 日本語名に `/` を含めると対応する英語に自動分割
+- `n_` 接頭辞のファイルはNSFWタブ、`negative` を含むファイルはネガティブタブに分類
+
+### ビルド
+
+CSVを編集したら以下を実行して `prompts-data.js` と `dist/AnimaI.html` を再生成:
+
+```bash
+python3 build.py
+```
+
+### テスト
+
+```bash
+node tests/logic-test.js
+```
 
 ## 使用技術
-- **Rust** (Axum, RustEmbed)
-- **HTML/CSS/JS** (Vanilla, API fetching)
+
+- HTML/CSS/JS (Vanilla — 依存関係なし)
+- Python 3 (ビルドスクリプトのみ)
+
+## プロンプト設計の参考
+
+- Illustrious XL 公式推奨タグ構成 (OnomaAI Research)
+- Animagine XL 4.0 モデルカード (CaglistroLab, HuggingFace)
+- NoobAI XL 推奨品質タグ (Civitai コミュニティ)
