@@ -88,7 +88,7 @@ check('0.8 -> weighted', applyWeight('smile', { weight: 0.8 }) === '(smile:0.8)'
 // ---- assembly & ordering ----
 console.log('Assembly & ordering:');
 state.slots[0].set('1girl', { weight: 1.0, locked: false, cat: 'subject' });
-state.slots[0].set('school uniform', { weight: 1.0, locked: false, cat: 'clothing_real' });
+state.slots[0].set('school uniform', { weight: 1.0, locked: false, cat: 'clothing' });
 state.slots[0].set('long hair', { weight: 1.0, locked: false, cat: 'hair' });
 state.slots[0].set('night sky, stars', { weight: 1.0, locked: false, cat: 'background' });
 

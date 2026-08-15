@@ -8,7 +8,7 @@
 // State
 // ---------------------------------------------------------------------------
 const CHAR_SCOPED_SLOTS = new Set([
-    'subject', 'hair', 'expression', 'clothing_real', 'clothing_fantasy',
+    'subject', 'hair', 'hair_color', 'expression', 'clothing',
     'accessories', 'pose', 'situation',
     'n_nsfw', 'n_body_type', 'n_expression', 'n_accessories', 'n_pose', 'n_situation',
 ]);
@@ -486,9 +486,9 @@ function refreshOutputs() {
 // Random generation (lock-aware)
 // ---------------------------------------------------------------------------
 const RANDOM_CATEGORIES = [
-    'subject', 'hair', 'expression', 'clothing_real', 'clothing_fantasy',
+    'subject', 'hair', 'hair_color', 'expression', 'clothing',
     'accessories', 'pose', 'situation', 'composition', 'background',
-    'effect', 'art_style', 'era',
+    'background_style', 'effect', 'art_style', 'era',
     'n_nsfw', 'n_body_type', 'n_expression', 'n_accessories', 'n_pose', 'n_situation',
 ];
 
