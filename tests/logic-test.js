@@ -138,6 +138,29 @@ state.negativeTags.set('lowres', { weight: 1.0, locked: false, cat: 'manual' });
 const neg = assembleNegative();
 check('negative joined', neg.includes('lowres'));
 
+// ---- duplicate suppression ----
+console.log('Duplicate suppression:');
+// two negative bundles sharing tags -> each tag once
+state.negativeTags.clear();
+state.negativeTags.set('lowres, worst quality, bad quality, lowres', { weight: 1.0, locked: false, cat: 'negative_prompt' });
+state.negativeTags.set('worst quality, low quality, lowres', { weight: 1.0, locked: false, cat: 'negative_prompt' });
+let negDedup = assembleNegative();
+const tagList = negDedup.split(', ').map(s => s.toLowerCase());
+const dupCount = tagList.length - new Set(tagList).size;
+check('negative bundles deduped', dupCount === 0, negDedup);
+// positive: selecting both "masterpiece" item and a bundle containing masterpiece
+state.negativeTags.clear();
+state.slots[0].clear();
+state.modelId = 'illustrious';
+state.qualityAuto = true;
+state.slots[0].set('1girl', { weight: 1.0, locked: false, cat: 'subject' });
+state.slots[0].set('masterpiece', { weight: 1.0, locked: false, cat: 'quality' });
+let posDedup = assemblePositive();
+const posList = posDedup.split(', ');
+const posMasterpiece = posList.filter(t => t === 'masterpiece').length;
+check('quality tag not duplicated with auto-insert', posMasterpiece === 1, posDedup);
+state.qualityAuto = true;
+
 // ---- random (lock-aware) ----
 console.log('Random (lock-aware):');
 state.nsfwMode = false;

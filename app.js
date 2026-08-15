@@ -202,6 +202,7 @@ function assemblePositive() {
     // --- single / shared pool ---
     const sharedPool = state.slots[0];
     const groups = {}; // slotName -> [string]
+    const emitted = new Set(); // final-prompt level tag dedupe
 
     for (const slotName of template) groups[slotName] = [];
 
@@ -210,7 +211,16 @@ function assemblePositive() {
         const cat = categoryById(meta.cat);
         const slot = cat ? cat.slot : 'composition';
         if (!groups[slot]) groups[slot] = [];
-        groups[slot].push(applyWeight(prompt, meta));
+        const parts = prompt.split(',').map(s => s.trim()).filter(Boolean);
+        const kept = [];
+        for (const p of parts) {
+            const k = p.toLowerCase();
+            if (emitted.has(k)) continue;
+            emitted.add(k);
+            kept.push(p);
+        }
+        if (kept.length === 0) return; // fully duplicate entry
+        groups[slot].push(applyWeight(kept.join(', '), meta));
     });
 
     // auto rating
@@ -234,6 +244,7 @@ function assemblePositive() {
         result.push(...(groups.rating || []));
         result.push(...(groups.character || []));
         const charBlocks = [];
+        const charEmitted = new Set(emitted); // shared tags already emitted
         for (let i = 1; i <= 3; i++) {
             const pool = state.slots[i];
             if (pool.size === 0) continue;
@@ -243,7 +254,16 @@ function assemblePositive() {
                 const cat = categoryById(meta.cat);
                 const slot = cat ? cat.slot : 'composition';
                 if (!charGroups[slot]) charGroups[slot] = [];
-                charGroups[slot].push(applyWeight(prompt, meta));
+                const parts = prompt.split(',').map(s => s.trim()).filter(Boolean);
+                const kept = [];
+                for (const p of parts) {
+                    const k = p.toLowerCase();
+                    if (charEmitted.has(k)) continue;
+                    charEmitted.add(k);
+                    kept.push(p);
+                }
+                if (kept.length === 0) return;
+                charGroups[slot].push(applyWeight(kept.join(', '), meta));
             });
             const block = template.flatMap(s => charGroups[s] || []);
             if (block.length) charBlocks.push(block.join(', '));
@@ -259,7 +279,20 @@ function assemblePositive() {
 
 function assembleNegative() {
     const out = [];
-    state.negativeTags.forEach((meta, prompt) => out.push(applyWeight(prompt, meta)));
+    const emittedNeg = new Set();
+    state.negativeTags.forEach((meta, prompt) => {
+        const parts = prompt.split(',').map(s => s.trim()).filter(Boolean);
+        const seenLocal = new Set();
+        const kept = parts.filter(p => {
+            const k = p.toLowerCase();
+            if (seenLocal.has(k) || emittedNeg.has(k)) return false;
+            seenLocal.add(k);
+            return true;
+        });
+        if (kept.length === 0) return;
+        kept.forEach(p => emittedNeg.add(p.toLowerCase()));
+        out.push(applyWeight(kept.join(', '), meta));
+    });
     return out.join(', ');
 }
 
