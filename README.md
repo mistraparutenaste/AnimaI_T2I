@@ -50,6 +50,7 @@ Japanese,Prompt,weight(省略可)
 | ポーズ / シチュエーション / 構図・カメラ | 身体と画面 |
 | 背景・場所 / 背景様式 | 「教室」等の場所と「白背景」等の様式を分離 |
 | 効果 / 画風 / 品質 / 年代 / レーティング | 仕上げ |
+| NSFW 6カテゴリ | 基本設定・体形・表情・ポーズ・シチュエーション・道具(NSFWトグルで表示、計224タグ) |
 
 ### ビルド
 
@@ -62,13 +63,16 @@ python3 build.py
 ### テスト
 
 ```bash
-node tests/logic-test.js
+npm install            # 初回のみ (jsdom)
+npm test               # logic 40件 + DOM 30件
+npm run audit          # CSV監査(重複・欠落・表記ゆれ)
 ```
 
 ## 使用技術
 
 - HTML/CSS/JS (Vanilla — 依存関係なし)
 - Python 3 (ビルドスクリプトのみ)
+- Node.js + jsdom (テストのみ)
 
 ## プロンプト設計の参考
 

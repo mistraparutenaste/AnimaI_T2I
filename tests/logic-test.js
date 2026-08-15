@@ -161,6 +161,18 @@ const posMasterpiece = posList.filter(t => t === 'masterpiece').length;
 check('quality tag not duplicated with auto-insert', posMasterpiece === 1, posDedup);
 state.qualityAuto = true;
 
+// ---- NSFW expansion coverage (regression) ----
+console.log('NSFW expansion coverage:');
+const nsfwCat = id => window.PROMPTS_DATA.nsfw.find(c => c.id === id);
+const hasNsfwTag = (id, tag) => (nsfwCat(id) || { tags: [] }).tags.some(t => t.prompt === tag);
+check('n_pose has arched back', hasNsfwTag('n_pose', 'arched back'));
+check('n_situation has mating press', hasNsfwTag('n_situation', 'mating press'));
+check('n_situation has 69', hasNsfwTag('n_situation', '69'));
+check('n_body_type has large areolae (danbooru official)', hasNsfwTag('n_body_type', 'large areolae'));
+check('no big areolae alias remains', !hasNsfwTag('n_body_type', 'big areolae'));
+check('n_accessories has tail plug', hasNsfwTag('n_accessories', 'tail plug'));
+check('n_nsfw has panties aside', hasNsfwTag('n_nsfw', 'panties aside'));
+
 // ---- random (lock-aware) ----
 console.log('Random (lock-aware):');
 state.nsfwMode = false;

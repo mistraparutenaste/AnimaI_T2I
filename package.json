@@ -1,0 +1,13 @@
+{
+  "name": "animai-t2i",
+  "version": "2.0.0",
+  "private": true,
+  "description": "AnimaI T2I - prompt builder (tests only; the app itself is a standalone HTML file)",
+  "scripts": {
+    "test": "node tests/logic-test.js && node tests/dom-test.js",
+    "audit": "python3 tests/audit-csv.py"
+  },
+  "devDependencies": {
+    "jsdom": "^30.0.1"
+  }
+}
