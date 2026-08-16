@@ -42,6 +42,7 @@ CATEGORY_NAMES = {
     "n_accessories": "NSFW アクセサリー",
     "n_pose": "NSFW ポーズセット",
     "n_situation": "NSFW シチュエーション",
+    "n_homosexual": "NSFW 同性愛",
     "negative_prompt": "ネガティブプロンプトセット",
 }
 
@@ -54,7 +55,7 @@ SFW_ORDER = [
 ]
 NSFW_ORDER = [
     "n_nsfw", "n_body_type", "n_expression",
-    "n_pose", "n_situation", "n_accessories",
+    "n_pose", "n_situation", "n_homosexual", "n_accessories",
 ]
 NEGATIVE_ORDER = ["negative_prompt"]
 
@@ -86,6 +87,7 @@ SLOT_BY_CATEGORY = {
     "n_accessories": "clothing",
     "n_pose": "composition",
     "n_situation": "composition",
+    "n_homosexual": "composition",
     # Negative
     "negative_prompt": "negative",
 }

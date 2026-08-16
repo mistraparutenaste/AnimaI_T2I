@@ -10,7 +10,7 @@
 const CHAR_SCOPED_SLOTS = new Set([
     'subject', 'hair', 'hair_color', 'expression', 'clothing',
     'accessories', 'pose', 'situation',
-    'n_nsfw', 'n_body_type', 'n_expression', 'n_accessories', 'n_pose', 'n_situation',
+    'n_nsfw', 'n_body_type', 'n_expression', 'n_accessories', 'n_pose', 'n_situation', 'n_homosexual',
 ]);
 
 const LS = {
@@ -489,7 +489,7 @@ const RANDOM_CATEGORIES = [
     'subject', 'hair', 'hair_color', 'expression', 'clothing',
     'accessories', 'pose', 'situation', 'composition', 'background',
     'background_style', 'effect', 'art_style', 'era',
-    'n_nsfw', 'n_body_type', 'n_expression', 'n_accessories', 'n_pose', 'n_situation',
+    'n_nsfw', 'n_body_type', 'n_expression', 'n_accessories', 'n_pose', 'n_situation', 'n_homosexual',
 ];
 
 function randomize() {

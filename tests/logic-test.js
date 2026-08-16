@@ -199,6 +199,23 @@ check('n_expression has naughty face', hasNsfwTag('n_expression', 'naughty face'
 check('n_pose has spread pussy', hasNsfwTag('n_pose', 'spread pussy'));
 check('n_accessories has remote control vibrator', hasNsfwTag('n_accessories', 'remote control vibrator'));
 
+// 同性愛カテゴリ (n_homosexual)
+check('n_homosexual category exists', !!nsfwCat('n_homosexual'));
+check('n_homosexual has yaoi', hasNsfwTag('n_homosexual', 'yaoi'));
+check('n_homosexual has yuri', hasNsfwTag('n_homosexual', 'yuri'));
+check('n_homosexual has bara', hasNsfwTag('n_homosexual', 'bara'));
+check('n_homosexual has gachimuchi', hasNsfwTag('n_homosexual', 'gachimuchi'));
+check('n_homosexual has frottage', hasNsfwTag('n_homosexual', 'frottage'));
+check('n_homosexual has tribadism', hasNsfwTag('n_homosexual', 'tribadism'));
+check('n_homosexual bundle: yaoi kiss', hasNsfwTag('n_homosexual', 'yaoi, kiss'));
+check('n_homosexual bundle: yuri kiss', hasNsfwTag('n_homosexual', 'yuri, kiss'));
+check('n_homosexual bundle: yaoi blowjob', hasNsfwTag('n_homosexual', 'yaoi, blowjob'));
+check('n_homosexual bundle: yaoi anal creampie', hasNsfwTag('n_homosexual', 'yaoi, anal creampie'));
+// 移動済みタグは n_situation に残っていない
+check('n_situation no longer has yaoi', !hasNsfwTag('n_situation', 'yaoi'));
+check('n_situation no longer has gay', !hasNsfwTag('n_situation', 'gay'));
+check('n_situation no longer has tribadism', !hasNsfwTag('n_situation', 'tribadism'));
+
 // ---- random (lock-aware) ----
 console.log('Random (lock-aware):');
 state.nsfwMode = false;
