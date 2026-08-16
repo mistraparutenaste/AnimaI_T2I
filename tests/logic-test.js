@@ -188,6 +188,16 @@ check('n_expression has mind break', hasNsfwTag('n_expression', 'mind break'));
 check('n_expression has torogao', hasNsfwTag('n_expression', 'torogao'));
 check('n_accessories has chastity cage', hasNsfwTag('n_accessories', 'chastity cage'));
 check('n_nsfw has naked apron', hasNsfwTag('n_nsfw', 'naked apron'));
+// gap-fill 2: 深掘り調査で確認したDanbooru実在タグ
+check('n_situation has standing doggystyle', hasNsfwTag('n_situation', 'standing doggystyle'));
+check('n_situation has anilingus', hasNsfwTag('n_situation', 'anilingus'));
+check('n_situation has orgasm', hasNsfwTag('n_situation', 'orgasm'));
+check('n_situation has testicle sucking', hasNsfwTag('n_situation', 'testicle sucking'));
+check('n_situation has licking nipple', hasNsfwTag('n_situation', 'licking nipple'));
+check('n_body_type has muscular male', hasNsfwTag('n_body_type', 'muscular male'));
+check('n_expression has naughty face', hasNsfwTag('n_expression', 'naughty face'));
+check('n_pose has spread pussy', hasNsfwTag('n_pose', 'spread pussy'));
+check('n_accessories has remote control vibrator', hasNsfwTag('n_accessories', 'remote control vibrator'));
 
 // ---- random (lock-aware) ----
 console.log('Random (lock-aware):');
