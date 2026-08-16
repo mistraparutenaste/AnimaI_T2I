@@ -1,0 +1,8 @@
+{
+  "scanned": "2026-08-16",
+  "font_stack": "Outfit + Noto Sans JP (Google Fonts, index.html)",
+  "palette": "introduced by Hallmark redesign (tokens.css, indigo anchor ~277)",
+  "motion": "motion-cut (no motion libraries)",
+  "spacing": "introduced by Hallmark redesign (4pt scale in tokens.css)",
+  "framework": "vanilla HTML + CSS + JS (standalone single-file app)"
+}

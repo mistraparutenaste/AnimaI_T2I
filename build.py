@@ -246,15 +246,20 @@ def build_data_js(data):
 
 
 def build_single_html():
-    """Inline style.css + prompts-data.js + app.js into dist/AnimaI.html."""
+    """Inline tokens.css + style.css + prompts-data.js + app.js into dist/AnimaI.html."""
     with open(os.path.join(ROOT, "index.html"), encoding="utf-8") as f:
         html = f.read()
+    with open(os.path.join(ROOT, "tokens.css"), encoding="utf-8") as f:
+        tokens = f.read()
     with open(os.path.join(ROOT, "style.css"), encoding="utf-8") as f:
         style = f.read()
     with open(os.path.join(ROOT, "app.js"), encoding="utf-8") as f:
         appjs = f.read()
     with open(os.path.join(ROOT, "prompts-data.js"), encoding="utf-8") as f:
         datajs = f.read()
+    html = html.replace(
+        '<link rel="stylesheet" href="tokens.css">',
+        "<style>\n" + tokens + "\n</style>")
     html = html.replace(
         '<link rel="stylesheet" href="style.css">',
         "<style>\n" + style + "\n</style>")

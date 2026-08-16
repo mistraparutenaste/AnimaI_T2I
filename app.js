@@ -404,7 +404,11 @@ function renderSelectedChips() {
 
         pool.forEach((meta, prompt) => {
             const chip = document.createElement('div');
-            chip.className = `chip${meta.locked ? ' locked' : ''}`;
+            const catClass = !meta.cat || meta.cat === 'manual' ? ''
+                : meta.cat.startsWith('n_') ? ' cat-nsfw'
+                : meta.cat === 'negative_prompt' ? ' cat-negative'
+                : ' cat-' + meta.cat;
+            chip.className = 'chip' + (meta.locked ? ' locked' : '') + catClass;
 
             const name = document.createElement('span');
             name.className = 'chip-name';
@@ -604,7 +608,7 @@ function renderFavorites() {
         actions.className = 'favorite-item-actions';
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'fav-delete-btn';
-        deleteBtn.innerHTML = '🗑️';
+        deleteBtn.textContent = '×';
         deleteBtn.title = '削除';
         deleteBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
@@ -802,9 +806,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabPanels = document.querySelectorAll('.tab-panel');
     tabBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            tabBtns.forEach(b => b.classList.remove('active'));
+            tabBtns.forEach(b => {
+                b.classList.remove('active');
+                b.setAttribute('aria-selected', 'false');
+            });
             tabPanels.forEach(p => p.classList.remove('active'));
             btn.classList.add('active');
+            btn.setAttribute('aria-selected', 'true');
             document.getElementById(`panel-${btn.getAttribute('data-tab')}`).classList.add('active');
         });
     });
@@ -966,7 +974,8 @@ document.addEventListener('DOMContentLoaded', () => {
         sunIcon.style.display = theme === 'light' ? 'none' : 'inline';
         moonIcon.style.display = theme === 'light' ? 'inline' : 'none';
     };
-    applyTheme(localStorage.getItem(LS.theme) || 'dark');
+    applyTheme(localStorage.getItem(LS.theme)
+        || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'));
     themeToggleBtn.addEventListener('click', () => {
         const cur = document.documentElement.getAttribute('data-theme');
         applyTheme(cur === 'dark' ? 'light' : 'dark');

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AnimaI T2I - プロンプトメーカー</title>
     <link rel="icon" href="icon.png" type="image/png">
+    <link rel="stylesheet" href="tokens.css">
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,10 +25,10 @@
                         <label for="model-select">モデル</label>
                         <select id="model-select" title="生成モデルを選択"></select>
                     </div>
-                    <button id="preset-edit-btn" class="btn btn-secondary btn-sm" title="モデルプリセットを編集">⚙️ プリセット編集</button>
-                    <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマを切り替え">
-                        <span class="theme-icon-sun">☀️</span>
-                        <span class="theme-icon-moon" style="display: none;">🌙</span>
+                    <button id="preset-edit-btn" class="btn btn-secondary btn-sm" title="モデルプリセットを編集">プリセット編集</button>
+                    <button id="theme-toggle-btn" class="theme-toggle-btn" title="テーマを切り替え" aria-label="テーマを切り替え">
+                        <span class="theme-icon-sun" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span>
+                        <span class="theme-icon-moon" style="display: none;" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg></span>
                     </button>
                     <label class="switch-container">
                         <input type="checkbox" id="nsfw-toggle">
@@ -45,8 +46,8 @@
                 <!-- 検索 -->
                 <div class="search-bar">
                     <input type="text" id="tag-search-input" placeholder="タグを検索 (日本語/英語)...">
-                    <button id="tag-search-clear" class="btn btn-secondary btn-sm">✕</button>
-                    <button id="random-btn" class="btn btn-primary btn-sm" title="ロックしていないカテゴリからランダム選択">🎲 おまかせ</button>
+                    <button id="tag-search-clear" class="btn btn-secondary btn-sm">×</button>
+                    <button id="random-btn" class="btn btn-primary btn-sm" title="ロックしていないカテゴリからランダム選択">おまかせ</button>
                 </div>
 
                 <!-- 複数キャラ用スロットバー -->
@@ -59,23 +60,23 @@
                 </div>
 
                 <!-- タブメニュー -->
-                <div class="tab-container">
-                    <button class="tab-btn active" data-tab="sfw">ポジティブ (通常)</button>
-                    <button class="tab-btn" data-tab="nsfw" id="nsfw-tab-btn" style="display: none;">ポジティブ (NSFW)</button>
-                    <button class="tab-btn" data-tab="negative">ネガティブ</button>
+                <div class="tab-container" role="tablist" aria-label="タグカテゴリ">
+                    <button class="tab-btn active" data-tab="sfw" id="sfw-tab-btn" role="tab" aria-selected="true" aria-controls="panel-sfw">ポジティブ (通常)</button>
+                    <button class="tab-btn" data-tab="nsfw" id="nsfw-tab-btn" style="display: none;" role="tab" aria-selected="false" aria-controls="panel-nsfw">ポジティブ (NSFW)</button>
+                    <button class="tab-btn" data-tab="negative" id="negative-tab-btn" role="tab" aria-selected="false" aria-controls="panel-negative">ネガティブ</button>
                 </div>
 
                 <!-- 各タブのコンテンツ -->
                 <div class="tab-panels">
-                    <div class="tab-panel active" id="panel-sfw">
+                    <div class="tab-panel active" id="panel-sfw" role="tabpanel" aria-labelledby="sfw-tab-btn">
                         <div class="category-grid" id="sfw-categories">
                             <div class="loading">データを読み込んでいます...</div>
                         </div>
                     </div>
-                    <div class="tab-panel" id="panel-nsfw">
+                    <div class="tab-panel" id="panel-nsfw" role="tabpanel" aria-labelledby="nsfw-tab-btn">
                         <div class="category-grid" id="nsfw-categories"></div>
                     </div>
-                    <div class="tab-panel" id="panel-negative">
+                    <div class="tab-panel" id="panel-negative" role="tabpanel" aria-labelledby="negative-tab-btn">
                         <div class="category-grid" id="negative-categories"></div>
                     </div>
                 </div>
@@ -89,8 +90,8 @@
                         <div class="preview-header">
                             <h2>お気に入り (Favorites)</h2>
                             <div class="favorites-actions-inline">
-                                <button id="export-favorites-btn" class="btn btn-secondary btn-sm" title="JSONで書き出し">📤 エクスポート</button>
-                                <button id="import-favorites-btn" class="btn btn-secondary btn-sm" title="JSONを読み込み">📥 インポート</button>
+                                <button id="export-favorites-btn" class="btn btn-secondary btn-sm" title="JSONで書き出し">エクスポート</button>
+                                <button id="import-favorites-btn" class="btn btn-secondary btn-sm" title="JSONを読み込み">インポート</button>
                                 <input type="file" id="import-favorites-file" accept=".json" style="display:none;">
                             </div>
                         </div>
@@ -100,7 +101,7 @@
                         <div class="favorites-actions">
                             <div class="manual-input-group">
                                 <input type="text" id="favorite-name-input" placeholder="お気に入りの名前...">
-                                <button id="save-favorite-btn">保存</button>
+                                <button id="save-favorite-btn" class="btn btn-primary">保存</button>
                             </div>
                         </div>
                     </div>
@@ -140,7 +141,7 @@
                         <div class="preview-actions">
                             <div class="manual-input-group">
                                 <input type="text" id="manual-positive-input" placeholder="カスタムタグを入力...">
-                                <button id="add-manual-positive-btn">追加</button>
+                                <button id="add-manual-positive-btn" class="btn btn-secondary">追加</button>
                             </div>
                             <div class="action-buttons">
                                 <button class="btn btn-secondary" id="clear-positive-btn">クリア</button>
@@ -167,7 +168,7 @@
                         <div class="preview-actions">
                             <div class="manual-input-group">
                                 <input type="text" id="manual-negative-input" placeholder="カスタムタグを入力...">
-                                <button id="add-manual-negative-btn">追加</button>
+                                <button id="add-manual-negative-btn" class="btn btn-secondary">追加</button>
                             </div>
                             <div class="action-buttons">
                                 <button class="btn btn-secondary" id="clear-negative-btn">クリア</button>

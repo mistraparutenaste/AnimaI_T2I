@@ -1,0 +1,165 @@
+/* ==========================================================================
+   Hallmark tokens — AnimaI T2I
+   theme: custom (tuned) · vibe: "flat engineered tool, indigo anchor"
+   axes: dark / geometric-sans / cool · anchor hue: ~277 (indigo)
+   All colours OKLCH, opaque; alpha reserved for overlays.
+   ========================================================================== */
+:root {
+    /* --- paper / ink (dark default) --- */
+    --color-paper:   oklch(16% 0.012 277);
+    --color-paper-2: oklch(20% 0.014 277);
+    --color-paper-3: oklch(24% 0.014 277);
+    --color-well:    oklch(13% 0.010 277);
+
+    --color-ink:    oklch(95% 0.006 277);
+    --color-ink-2:  oklch(86% 0.008 277);
+
+    --color-rule:   oklch(32% 0.012 277);
+    --color-rule-2: oklch(40% 0.012 277);
+
+    --color-text-secondary: oklch(74% 0.012 277);
+    --color-text-muted:     oklch(62% 0.014 277);
+    --color-text-subtle:    oklch(74% 0.012 277);
+    --color-overlay:        rgba(0, 0, 0, 0.55);
+
+    /* --- accent (indigo anchor, flat) --- */
+    --color-accent:      oklch(64% 0.15 277);
+    --color-accent-ink:  oklch(20% 0.02 277);
+    --color-accent-soft: oklch(27% 0.05 277);
+    --color-accent-text: oklch(80% 0.12 277);
+    --color-accent-rule: oklch(48% 0.10 277);
+    --color-focus:       oklch(80% 0.16 277);
+
+    /* --- semantic: danger (NSFW) --- */
+    --color-danger:      oklch(66% 0.16 22);
+    --color-danger-ink:  oklch(22% 0.03 22);
+    --color-danger-soft: oklch(27% 0.05 22);
+    --color-danger-text: oklch(82% 0.12 22);
+    --color-danger-rule: oklch(48% 0.10 22);
+
+    /* --- semantic: ok (negative / copied) --- */
+    --color-ok:      oklch(72% 0.13 160);
+    --color-ok-ink:  oklch(22% 0.03 160);
+    --color-ok-soft: oklch(27% 0.05 160);
+    --color-ok-text: oklch(84% 0.13 160);
+    --color-ok-rule: oklch(50% 0.10 160);
+
+    /* --- semantic: lock / counter states --- */
+    --color-lock:      oklch(78% 0.13 85);
+    --color-lock-soft: oklch(28% 0.05 85);
+    --color-warn:      oklch(75% 0.13 80);
+    --color-over:      oklch(70% 0.16 25);
+
+    /* --- category palette (studied-DNA: per-item colored blocks) --- */
+    --cat-subject:         oklch(75% 0.13 195);
+    --cat-hair:            oklch(78% 0.12 75);
+    --cat-hair_color:      oklch(78% 0.12 85);
+    --cat-expression:      oklch(74% 0.13 20);
+    --cat-clothing:        oklch(75% 0.13 145);
+    --cat-accessories:     oklch(73% 0.12 300);
+    --cat-pose:            oklch(75% 0.13 245);
+    --cat-situation:       oklch(76% 0.12 220);
+    --cat-composition:     oklch(74% 0.13 275);
+    --cat-background:      oklch(74% 0.11 110);
+    --cat-background_style:oklch(73% 0.11 135);
+    --cat-effect:          oklch(73% 0.13 335);
+    --cat-art_style:       oklch(74% 0.13 40);
+    --cat-quality:         oklch(75% 0.12 175);
+    --cat-era:             oklch(76% 0.10 90);
+    --cat-rating:          oklch(72% 0.14 15);
+
+    /* --- typography --- */
+    --font-display: 'Outfit', 'Noto Sans JP', sans-serif;
+    --font-body:    'Outfit', 'Noto Sans JP', sans-serif;
+
+    --text-2xs: 0.6875rem;
+    --text-xs:  0.75rem;
+    --text-sm:  0.875rem;
+    --text-md:  1rem;
+    --text-lg:  1.125rem;
+    --text-xl:  1.375rem;
+    --text-2xl: 1.75rem;
+
+    /* --- spacing (4pt scale) --- */
+    --space-3xs: 0.25rem;
+    --space-2xs: 0.5rem;
+    --space-xs:  0.75rem;
+    --space-sm:  1rem;
+    --space-md:  1.5rem;
+    --space-lg:  2rem;
+    --space-xl:  3rem;
+
+    /* --- motion --- */
+    --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-in:     cubic-bezier(0.7, 0, 0.84, 0);
+    --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+    --dur-micro: 120ms;
+    --dur-short: 220ms;
+    --dur-long:  420ms;
+
+    /* --- radii --- */
+    --radius-sm:   6px;
+    --radius-md:   8px;
+    --radius-lg:   12px;
+    --radius-pill: 999px;
+}
+
+[data-theme="light"] {
+    --color-paper:   oklch(97.5% 0.006 277);
+    --color-paper-2: oklch(94% 0.008 277);
+    --color-paper-3: oklch(90% 0.010 277);
+    --color-well:    oklch(96% 0.006 277);
+
+    --color-ink:   oklch(24% 0.02 277);
+    --color-ink-2: oklch(16% 0.02 277);
+
+    --color-rule:   oklch(86% 0.008 277);
+    --color-rule-2: oklch(78% 0.010 277);
+
+    --color-text-secondary: oklch(44% 0.014 277);
+    --color-text-muted:     oklch(42% 0.012 277);
+    --color-text-subtle:    oklch(40% 0.014 277);
+    --color-overlay:        rgba(0, 0, 0, 0.55);
+
+    --color-accent:      oklch(46% 0.16 277);
+    --color-accent-ink:  oklch(98% 0.004 277);
+    --color-accent-soft: oklch(93% 0.05 277);
+    --color-accent-text: oklch(40% 0.14 277);
+    --color-accent-rule: oklch(72% 0.09 277);
+    --color-focus:       oklch(50% 0.19 277);
+
+    --color-danger:      oklch(44% 0.18 22);
+    --color-danger-ink:  oklch(98% 0.004 22);
+    --color-danger-soft: oklch(94% 0.04 22);
+    --color-danger-text: oklch(44% 0.16 22);
+    --color-danger-rule: oklch(74% 0.09 22);
+
+    --color-ok:      oklch(46% 0.14 160);
+    --color-ok-ink:  oklch(98% 0.004 160);
+    --color-ok-soft: oklch(94% 0.04 160);
+    --color-ok-text: oklch(38% 0.13 160);
+    --color-ok-rule: oklch(74% 0.09 160);
+
+    --color-lock:      oklch(45% 0.13 80);
+    --color-lock-soft: oklch(94% 0.05 85);
+    --color-warn:      oklch(45% 0.14 80);
+    --color-over:      oklch(46% 0.18 25);
+
+    /* --- category palette (studied-DNA: per-item colored blocks) --- */
+    --cat-subject:         oklch(38% 0.13 195);
+    --cat-hair:            oklch(38% 0.12 75);
+    --cat-hair_color:      oklch(38% 0.12 85);
+    --cat-expression:      oklch(38% 0.13 20);
+    --cat-clothing:        oklch(38% 0.12 145);
+    --cat-accessories:     oklch(38% 0.12 300);
+    --cat-pose:            oklch(38% 0.13 245);
+    --cat-situation:       oklch(38% 0.12 220);
+    --cat-composition:     oklch(38% 0.13 275);
+    --cat-background:      oklch(38% 0.10 110);
+    --cat-background_style:oklch(38% 0.10 135);
+    --cat-effect:          oklch(38% 0.12 335);
+    --cat-art_style:       oklch(38% 0.13 40);
+    --cat-quality:         oklch(38% 0.11 175);
+    --cat-era:             oklch(38% 0.10 90);
+    --cat-rating:          oklch(38% 0.14 15);
+}
