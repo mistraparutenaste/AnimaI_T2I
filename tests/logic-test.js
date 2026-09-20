@@ -216,6 +216,36 @@ check('n_situation no longer has yaoi', !hasNsfwTag('n_situation', 'yaoi'));
 check('n_situation no longer has gay', !hasNsfwTag('n_situation', 'gay'));
 check('n_situation no longer has tribadism', !hasNsfwTag('n_situation', 'tribadism'));
 
+// ---- Character design & creative coverage ----
+console.log('Character design & creative coverage:');
+const sfwCat = id => window.PROMPTS_DATA.sfw.find(c => c.id === id);
+const hasSfwTag = (id, tag) => (sfwCat(id) || { tags: [] }).tags.some(t => t.prompt === tag);
+
+check('character_design category exists', !!sfwCat('character_design'));
+check('character_design has standing front set', hasSfwTag('character_design', 'standing, full body, straight-on, white background'));
+check('character_design has a-pose standing', hasSfwTag('character_design', 'standing, full body, a-pose, white background'));
+check('character_design has t-pose standing', hasSfwTag('character_design', 'standing, full body, t-pose, white background'));
+check('character_design has a-pose', hasSfwTag('character_design', 'a-pose'));
+check('character_design has t-pose', hasSfwTag('character_design', 't-pose'));
+check('character_design has reference_sheet', hasSfwTag('character_design', 'reference_sheet'));
+check('character_design has turnaround', hasSfwTag('character_design', 'reference_sheet, multiple_views, turnaround'));
+check('character_design has multiple_views', hasSfwTag('character_design', 'multiple_views'));
+check('character_design has multiple_expressions', hasSfwTag('character_design', 'reference_sheet, multiple_expressions'));
+check('character_design has color_guide', hasSfwTag('character_design', 'color_guide'));
+check('character_design has height_chart', hasSfwTag('character_design', 'height_chart'));
+check('character_design has game asset sprite', hasSfwTag('character_design', 'game asset, sprite, full body, transparent background'));
+check('character_design has contrapposto', hasSfwTag('character_design', 'standing, full body, contrapposto'));
+
+// pose & composition coverage
+check('pose has a-pose', hasSfwTag('pose', 'a-pose'));
+check('pose has t-pose', hasSfwTag('pose', 't-pose'));
+check('pose has arms at sides', hasSfwTag('pose', 'arms at sides'));
+check('pose has contrapposto', hasSfwTag('pose', 'contrapposto'));
+check('composition has straight-on', hasSfwTag('composition', 'straight-on'));
+check('composition has facing viewer', hasSfwTag('composition', 'facing viewer'));
+check('composition has turnaround', hasSfwTag('composition', 'turnaround'));
+check('composition has multiple_views', hasSfwTag('composition', 'multiple_views'));
+
 // ---- random (lock-aware) ----
 console.log('Random (lock-aware):');
 state.nsfwMode = false;

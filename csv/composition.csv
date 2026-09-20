@@ -25,3 +25,8 @@ Japanese,Prompt
 ローアングル,"low angle"
 クローズアップ,"close-up"
 背面,"back"
+正面(正対),"straight-on"
+正面向き,"facing viewer"
+ターンアラウンド(全身回転図),"turnaround"
+多面図(マルチビュー),"multiple_views"
+前後対比(正面・背面),"front_and_back"

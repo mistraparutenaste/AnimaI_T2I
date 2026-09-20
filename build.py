@@ -36,6 +36,7 @@ CATEGORY_NAMES = {
     "rating": "レーティング",
     "era": "年代・絵柄傾向",
     "composition": "構図・カメラ",
+    "character_design": "キャラクターデザイン・設定資料",
     "n_body_type": "NSFW 体形",
     "n_nsfw": "NSFW 基本設定",
     "n_expression": "NSFW 表情",
@@ -49,7 +50,7 @@ CATEGORY_NAMES = {
 # Display order inside each section (ported from main.rs priority_order)
 SFW_ORDER = [
     "subject", "hair", "hair_color", "expression", "clothing",
-    "accessories", "pose", "situation", "composition",
+    "accessories", "pose", "situation", "composition", "character_design",
     "background", "background_style", "effect",
     "art_style", "quality", "era", "rating",
 ]
@@ -70,6 +71,7 @@ SLOT_BY_CATEGORY = {
     "rating": "rating",
     "era": "era",
     "composition": "composition",
+    "character_design": "composition",
     "expression": "appearance",
     "pose": "composition",
     "hair": "appearance",
