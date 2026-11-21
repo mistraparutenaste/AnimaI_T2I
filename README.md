@@ -47,6 +47,7 @@ Japanese,Prompt,weight(省略可)
 ```
 
 - 2列目にカンマ区切りで複数タグを指定可能
+- タグは Danbooru の正式名を使用(エイリアスや廃止タグは避ける)。`bow \(weapon\)` のように括弧はエスケープ。追加後は `npm run check-tags` で確認
 - 日本語名に `/` を含めると対応する英語に自動分割
 - `n_` 接頭辞のファイルはNSFWタブ、`negative` を含むファイルはネガティブタブに分類
 
@@ -75,6 +76,7 @@ python3 build.py   # Windows では python build.py (または npm run build)
 npm install            # 初回のみ (jsdom)
 npm test               # ビルド後に logic + DOM テストを実行
 npm run audit          # CSV監査(重複・欠落・表記ゆれ)
+npm run check-tags     # 全タグをDanbooruで照合(エイリアス・廃止・未使用・存在しないタグを検出)
 ```
 
 ## 使用技術

@@ -177,7 +177,7 @@ check('n_situation has mating press', hasNsfwTag('n_situation', 'mating press'))
 check('n_situation has 69', hasNsfwTag('n_situation', '69'));
 check('n_body_type has large areolae (danbooru official)', hasNsfwTag('n_body_type', 'large areolae'));
 check('no big areolae alias remains', !hasNsfwTag('n_body_type', 'big areolae'));
-check('n_accessories has tail plug', hasNsfwTag('n_accessories', 'tail plug'));
+check('n_accessories has anal tail', hasNsfwTag('n_accessories', 'anal tail'));
 check('n_nsfw has panties aside', hasNsfwTag('n_nsfw', 'panties aside'));
 // male-receiving (男性受け) ejaculation scenarios
 check('n_situation has defeat ejaculation', hasNsfwTag('n_situation', 'defeat, ejaculation'));
@@ -189,7 +189,7 @@ check('n_situation has fucked silly', hasNsfwTag('n_situation', 'fucked silly'))
 check('n_situation has pegging', hasNsfwTag('n_situation', 'pegging'));
 check('n_situation has futa on male', hasNsfwTag('n_situation', 'futa on male'));
 check('n_situation has netorare', hasNsfwTag('n_situation', 'netorare'));
-check('n_body_type has otoko no ko', hasNsfwTag('n_body_type', 'otoko no ko'));
+check('n_body_type has trap', hasNsfwTag('n_body_type', 'trap'));
 check('n_body_type has large penis', hasNsfwTag('n_body_type', 'large penis'));
 check('n_expression has mind break', hasNsfwTag('n_expression', 'mind break'));
 check('n_expression has torogao', hasNsfwTag('n_expression', 'torogao'));
@@ -216,8 +216,8 @@ check('n_homosexual has frottage', hasNsfwTag('n_homosexual', 'frottage'));
 check('n_homosexual has tribadism', hasNsfwTag('n_homosexual', 'tribadism'));
 check('n_homosexual bundle: yaoi kiss', hasNsfwTag('n_homosexual', 'yaoi, kiss'));
 check('n_homosexual bundle: yuri kiss', hasNsfwTag('n_homosexual', 'yuri, kiss'));
-check('n_homosexual bundle: yaoi blowjob', hasNsfwTag('n_homosexual', 'yaoi, blowjob'));
-check('n_homosexual bundle: yaoi anal creampie', hasNsfwTag('n_homosexual', 'yaoi, anal creampie'));
+check('n_homosexual bundle: yaoi fellatio', hasNsfwTag('n_homosexual', 'yaoi, fellatio'));
+check('n_homosexual bundle: yaoi cum in ass', hasNsfwTag('n_homosexual', 'yaoi, cum in ass'));
 // 移動済みタグは n_situation に残っていない
 check('n_situation no longer has yaoi', !hasNsfwTag('n_situation', 'yaoi'));
 check('n_situation no longer has gay', !hasNsfwTag('n_situation', 'gay'));

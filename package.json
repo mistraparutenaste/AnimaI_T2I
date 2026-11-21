@@ -1,13 +1,14 @@
 {
   "name": "animai-t2i",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "private": true,
   "description": "AnimaI T2I - prompt builder (tests only; the app itself is a standalone HTML file)",
   "scripts": {
     "build": "python3 build.py || python build.py",
     "pretest": "npm run build",
     "test": "node tests/logic-test.js && node tests/dom-test.js",
-    "audit": "python3 tests/audit-csv.py || python tests/audit-csv.py"
+    "audit": "python3 tests/audit-csv.py || python tests/audit-csv.py",
+    "check-tags": "python3 tests/check-danbooru.py || python tests/check-danbooru.py"
   },
   "devDependencies": {
     "jsdom": "^30.0.1"
