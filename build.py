@@ -27,6 +27,10 @@ CATEGORY_NAMES = {
     "pose": "ポーズ",
     "hair": "髪型",
     "hair_color": "髪色",
+    "eye_color": "目の色・瞳",
+    "creature_parts": "人外パーツ(耳・尻尾・角・翼)",
+    "face_symbols": "顔の記号・漫符・口元",
+    "legwear": "脚・靴",
     "situation": "シチュエーション",
     "clothing": "服装",
     "accessories": "アクセサリー・小物",
@@ -49,7 +53,8 @@ CATEGORY_NAMES = {
 
 # Display order inside each section (ported from main.rs priority_order)
 SFW_ORDER = [
-    "subject", "hair", "hair_color", "expression", "clothing",
+    "subject", "hair", "hair_color", "eye_color", "creature_parts",
+    "expression", "face_symbols", "clothing", "legwear",
     "accessories", "pose", "situation", "composition", "character_design",
     "background", "background_style", "effect",
     "art_style", "quality", "era", "rating",
@@ -76,6 +81,10 @@ SLOT_BY_CATEGORY = {
     "pose": "composition",
     "hair": "appearance",
     "hair_color": "appearance",
+    "eye_color": "appearance",
+    "creature_parts": "appearance",
+    "face_symbols": "appearance",
+    "legwear": "clothing",
     "situation": "composition",
     "clothing": "clothing",
     "accessories": "clothing",

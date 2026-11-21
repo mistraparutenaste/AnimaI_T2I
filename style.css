@@ -1109,6 +1109,10 @@ textarea:disabled {
 .chip.cat-subject          { --chip-color: var(--cat-subject); }
 .chip.cat-hair             { --chip-color: var(--cat-hair); }
 .chip.cat-hair_color       { --chip-color: var(--cat-hair_color); }
+.chip.cat-eye_color        { --chip-color: var(--cat-hair_color); }
+.chip.cat-creature_parts   { --chip-color: var(--cat-hair); }
+.chip.cat-face_symbols     { --chip-color: var(--cat-expression); }
+.chip.cat-legwear          { --chip-color: var(--cat-clothing); }
 .chip.cat-expression       { --chip-color: var(--cat-expression); }
 .chip.cat-clothing         { --chip-color: var(--cat-clothing); }
 .chip.cat-accessories      { --chip-color: var(--cat-accessories); }

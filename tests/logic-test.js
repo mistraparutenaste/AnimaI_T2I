@@ -452,5 +452,30 @@ check('suggest prefix first', sg2.length > 0 && sg2[0].item.prompt.startsWith('l
 state.nsfwMode = false;
 check('suggest hides NSFW in SFW mode', !suggestCandidates('nude', false).some(c => c.cat.section === 'nsfw'));
 
+// ---- v2.3: new categories (eye color / legwear / creature parts / face symbols) ----
+console.log('v2.3 categories:');
+for (const [id, slot] of [['eye_color', 'appearance'], ['creature_parts', 'appearance'], ['face_symbols', 'appearance'], ['legwear', 'clothing']]) {
+    check(`${id} category exists`, !!sfwCat(id) && sfwCat(id).tags.length >= 20);
+    check(`${id} slot is ${slot}`, sfwCat(id) && sfwCat(id).slot === slot);
+    check(`${id} is char-scoped`, globalThis.__T.CHAR_SCOPED_SLOTS.has(id));
+}
+check('eye_color has blue eyes', hasSfwTag('eye_color', 'blue eyes'));
+check('eye_color has heterochromia', hasSfwTag('eye_color', 'heterochromia'));
+check('legwear: ニーハイ is thighhighs', sfwCat('legwear').tags.some(t => t.japanese === 'ニーハイソックス' && t.prompt === 'thighhighs'));
+check('legwear: ハイソックス is kneehighs', sfwCat('legwear').tags.some(t => t.japanese === 'ハイソックス' && t.prompt === 'kneehighs'));
+check('legwear rows moved out of clothing', !sfwCat('clothing').tags.some(t => ['thighhighs', 'kneehighs', 'pantyhose', 'barefoot'].includes(t.prompt)));
+check('creature_parts has animal ears', hasSfwTag('creature_parts', 'animal ears'));
+check('face_symbols has :d', hasSfwTag('face_symbols', ':d'));
+resetSel(); state.modelId = 'illustrious';
+state.slots[0].set('1girl', { weight: 1, locked: false, cat: 'subject' });
+state.slots[0].set('blue eyes', { weight: 1, locked: false, cat: 'eye_color' });
+state.slots[0].set('thighhighs', { weight: 1, locked: false, cat: 'legwear' });
+state.slots[0].set('long hair', { weight: 1, locked: false, cat: 'hair' });
+pos = assemblePositive();
+check('eye color sits with appearance (before legwear)', pos.indexOf('blue eyes') < pos.indexOf('thighhighs') && pos.indexOf('long hair') < pos.indexOf('thighhighs'), pos);
+check(':d parses as a plain tag', parseToken(':d').tag === ':d');
+check('^_^ parses as a plain tag', parseToken('^_^').tag === '^_^');
+check('@_@ found in catalogue', !!lookupTag('@_@', false));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
