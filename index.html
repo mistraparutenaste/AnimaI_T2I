@@ -45,9 +45,22 @@
             <section class="tag-selection-section">
                 <!-- 検索 -->
                 <div class="search-bar">
-                    <input type="search" id="tag-search-input" aria-label="タグを検索" placeholder="タグを検索 (日本語/英語)...">
+                    <input type="search" id="tag-search-input" aria-label="タグを検索" aria-keyshortcuts="/" placeholder="タグを検索 (日本語/英語)…  [ / ]">
                     <button id="tag-search-clear" class="btn btn-secondary btn-sm" aria-label="検索をクリア">×</button>
                     <button id="random-btn" class="btn btn-primary btn-sm" title="ロックしていないカテゴリからランダム選択">おまかせ</button>
+                    <button id="random-config-btn" class="btn btn-secondary btn-sm" aria-expanded="false" aria-controls="random-config" title="おまかせの対象カテゴリを選ぶ">対象</button>
+                </div>
+
+                <!-- おまかせ対象カテゴリ -->
+                <div class="random-config" id="random-config" hidden>
+                    <div class="random-config-head">
+                        <span>おまかせで選ぶカテゴリ</span>
+                        <span class="random-config-actions">
+                            <button id="random-all-btn" class="btn btn-secondary btn-sm">すべて</button>
+                            <button id="random-none-btn" class="btn btn-secondary btn-sm">解除</button>
+                        </span>
+                    </div>
+                    <div class="random-config-list" id="random-config-list"></div>
                 </div>
 
                 <!-- 複数キャラ用スロットバー -->
@@ -90,6 +103,7 @@
                         <div class="preview-header">
                             <h2>お気に入り (Favorites)</h2>
                             <div class="favorites-actions-inline">
+                                <button id="share-btn" class="btn btn-secondary btn-sm" title="今の選択を再現できるリンクをコピー">共有リンク</button>
                                 <button id="export-favorites-btn" class="btn btn-secondary btn-sm" title="JSONで書き出し">エクスポート</button>
                                 <button id="import-favorites-btn" class="btn btn-secondary btn-sm" title="JSONを読み込み">インポート</button>
                                 <input type="file" id="import-favorites-file" accept=".json" style="display:none;">
@@ -110,10 +124,14 @@
                     <div class="preview-card" id="chips-card">
                         <div class="preview-header">
                             <h2>選択中タグ</h2>
-                            <label class="mini-toggle">
-                                <input type="checkbox" id="multichar-toggle">
-                                <span>複数キャラ</span>
-                            </label>
+                            <div class="chips-header-actions">
+                                <button id="undo-btn" class="btn btn-secondary btn-sm" title="元に戻す (Ctrl+Z)" aria-keyshortcuts="Control+Z" disabled>↶ 戻す</button>
+                                <button id="redo-btn" class="btn btn-secondary btn-sm" title="やり直し (Ctrl+Y)" aria-keyshortcuts="Control+Y" disabled>↷ やり直し</button>
+                                <label class="mini-toggle">
+                                    <input type="checkbox" id="multichar-toggle">
+                                    <span>複数キャラ</span>
+                                </label>
+                            </div>
                         </div>
                         <div id="selected-chips" class="chips-container"></div>
                     </div>
@@ -140,12 +158,13 @@
                         </div>
                         <div class="preview-actions">
                             <div class="manual-input-group">
-                                <input type="text" id="manual-positive-input" placeholder="カスタムタグを入力...">
+                                <input type="text" id="manual-positive-input" placeholder="タグを入力（候補から選択可・(tag:1.2) や <lora:名前:0.8> も可）">
                                 <button id="add-manual-positive-btn" class="btn btn-secondary">追加</button>
                             </div>
                             <div class="action-buttons">
+                                <button class="btn btn-secondary" id="paste-import-btn" title="既存のプロンプトや共有リンクを貼り付けてタグに分解">貼り付け読込</button>
                                 <button class="btn btn-secondary" id="clear-positive-btn">クリア</button>
-                                <button class="btn btn-primary btn-copy" id="copy-positive-btn">
+                                <button class="btn btn-primary btn-copy" id="copy-positive-btn" title="コピー (Ctrl+Enter)">
                                     <span class="copy-text">コピー</span>
                                     <span class="copy-success-text" style="display: none;">コピー完了！</span>
                                 </button>
@@ -167,12 +186,12 @@
                         </div>
                         <div class="preview-actions">
                             <div class="manual-input-group">
-                                <input type="text" id="manual-negative-input" placeholder="カスタムタグを入力...">
+                                <input type="text" id="manual-negative-input" placeholder="タグを入力（候補から選択可）">
                                 <button id="add-manual-negative-btn" class="btn btn-secondary">追加</button>
                             </div>
                             <div class="action-buttons">
                                 <button class="btn btn-secondary" id="clear-negative-btn">クリア</button>
-                                <button class="btn btn-primary btn-copy" id="copy-negative-btn">
+                                <button class="btn btn-primary btn-copy" id="copy-negative-btn" title="コピー (Ctrl+Shift+Enter)">
                                     <span class="copy-text">コピー</span>
                                     <span class="copy-success-text" style="display: none;">コピー完了！</span>
                                 </button>
@@ -198,8 +217,38 @@
             </div>
         </div>
 
+        <!-- 貼り付け読込モーダル -->
+        <div id="import-modal" class="modal-backdrop" style="display:none;">
+            <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="import-modal-title">
+                <div class="modal-header">
+                    <h2 id="import-modal-title">プロンプトを貼り付けて読み込む</h2>
+                </div>
+                <p class="modal-note">カンマ区切りのプロンプト、重み記法 <code>(tag:1.2)</code> <code>((tag))</code> <code>[tag]</code>、LoRA <code>&lt;lora:名前:0.8&gt;</code>、WebUI の「Negative prompt:」付きの形式、共有リンクに対応。収録済みのタグは元のカテゴリに、それ以外は手入力タグとして追加されます。</p>
+                <textarea id="import-text" class="import-text" rows="7" aria-label="読み込むプロンプト" placeholder="1girl, solo, (smile:1.2), school uniform, &lt;lora:example:0.8&gt;&#10;Negative prompt: lowres, bad anatomy"></textarea>
+                <div class="import-options" role="radiogroup" aria-label="読み込み方法">
+                    <label><input type="radio" name="import-mode" value="add" checked> 今の選択に追加</label>
+                    <label><input type="radio" name="import-mode" value="replace"> 今の選択と置き換え</label>
+                </div>
+                <div class="modal-footer">
+                    <button id="import-cancel" class="btn btn-secondary">キャンセル</button>
+                    <button id="import-run" class="btn btn-primary" title="読み込む (Ctrl+Enter)">読み込む</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- スマホ用 固定コピーバー -->
+        <div class="mobile-copy-bar" id="mobile-copy-bar">
+            <span id="mobile-token-count" class="mobile-token token-count">0 / 75 トークン</span>
+            <button id="mobile-jump" class="btn btn-secondary btn-sm" title="出力欄へ移動">出力へ</button>
+            <button id="mobile-copy-neg" class="btn btn-secondary btn-sm btn-copy"><span class="copy-text">ネガをコピー</span><span class="copy-success-text" style="display: none;">コピー完了！</span></button>
+            <button id="mobile-copy-pos" class="btn btn-primary btn-sm btn-copy"><span class="copy-text">ポジをコピー</span><span class="copy-success-text" style="display: none;">コピー完了！</span></button>
+        </div>
+
+        <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
         <footer class="app-footer">
-            <p>AnimaI T2I v2.1 — Danbooruタグベースのプロンプトビルダー (Illustrious / NoobAI / Animagine 対応)</p>
+            <p>AnimaI T2I v2.2 — Danbooruタグベースのプロンプトビルダー (Illustrious / NoobAI / Animagine 対応)</p>
+            <p class="shortcut-hint">ショートカット: <kbd>/</kbd> 検索 · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> コピー (<kbd>Shift</kbd> でネガ) · <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> 戻す / やり直し · 選択中タグはドラッグで並べ替え</p>
         </footer>
     </div>
     <script src="prompts-data.js"></script>

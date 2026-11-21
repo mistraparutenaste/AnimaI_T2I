@@ -51,13 +51,17 @@ const shim = `
     randomize, serializeSelection, restoreSelection, currentPreset,
     CHAR_SCOPED_SLOTS, LS, countTokenChunks, mergePresets, mergeImportedFavorites,
     favTagsForSection, isFavTag, tagDefault, categoryById, toggleTag,
+    splitPromptTokens, parseToken, lookupTag, addPromptText, importPromptText, encodeShare,
+    decodeShareFromText, recordHistory, undo, redo, undoHistory, reorderPool, setWeight, suggestCandidates,
 };
 `;
 (0, eval)(appSrc + shim);
 const { state, countTokens, applyWeight, assemblePositive, assembleNegative,
         randomize, serializeSelection, restoreSelection, countTokenChunks, mergePresets,
         mergeImportedFavorites, favTagsForSection, isFavTag, tagDefault, categoryById,
-        toggleTag } = globalThis.__T;
+        toggleTag, splitPromptTokens, parseToken, lookupTag, addPromptText, importPromptText,
+        encodeShare, decodeShareFromText, recordHistory, undo, redo, undoHistory, reorderPool,
+        setWeight, suggestCandidates } = globalThis.__T;
 
 let pass = 0, fail = 0;
 function check(name, cond, extra) {
@@ -341,6 +345,112 @@ check('stale favourite tag ignored', favTagsForSection('sfw').length === 1);
 restoreSelection({ modelId: 'deleted-model', slots: [{ x: { weight: 'abc', cat: 'hair' } }] });
 check('restore ignores unknown modelId', state.presets.some(p => p.id === state.modelId));
 check('restore sanitises weight', state.slots[0].get('x').weight === 1.0);
+
+// ---- v2.2: parsing / LoRA / share / undo / reorder / random / suggest ----
+console.log('v2.2 features:');
+const resetSel = () => { state.slots.forEach(m => m.clear()); state.negativeTags.clear(); state.multiChar = false; state.activeSlot = 0; };
+state.modelId = 'illustrious'; state.qualityAuto = true; state.ratingAuto = true; state.nsfwMode = false;
+
+const toks = splitPromptTokens('1girl, (a, b:1.2), <lora:x:0.8>,\nlong hair, character \\(series\\)');
+check('split respects brackets/newlines', toks.length === 5 && toks[1] === '(a, b:1.2)', JSON.stringify(toks));
+check('parse (tag:1.3)', JSON.stringify(parseToken('(smile:1.3)')) === JSON.stringify({ tag: 'smile', weight: 1.3 }));
+check('parse ((tag)) ~ 1.2', parseToken('((smile))').weight === 1.2);
+check('parse [tag] ~ 0.9', parseToken('[smile]').weight === 0.9);
+check('parse group (a, b:1.2)', parseToken('(a, b:1.2)').tag === 'a, b');
+check('escaped parens kept as tag', parseToken('character \\(series\\)').tag === 'character \\(series\\)');
+check('parse BREAK', parseToken('BREAK').isBreak === true);
+const pl = parseToken('<lora:myStyle:0.65>');
+check('parse LoRA key+weight', pl.lora && pl.tag === '<lora:myStyle>' && pl.weight === 0.65, JSON.stringify(pl));
+
+check('lookup with underscores', !!lookupTag('long_hair', false) && lookupTag('long_hair', false).prompt === 'long hair');
+check('lookup unknown -> null', lookupTag('zzz not a tag', false) === null);
+
+resetSel();
+let ar = addPromptText('(long hair:1.2), my custom thing, <lora:abc:0.7>', false);
+check('addPromptText counts', ar.known === 1 && ar.manual === 2, JSON.stringify(ar));
+check('known tag joins its category', state.slots[0].get('long hair').cat === 'hair' && state.slots[0].get('long hair').weight === 1.2);
+pos = assemblePositive();
+check('LoRA emitted last with weight', pos.endsWith('<lora:abc:0.7>'), pos);
+check('LoRA not counted as tokens', countTokens('<lora:abc:0.7>') === 0);
+state.slots[0].get('<lora:abc>').weight = 0.75;
+check('LoRA weight 2 decimals', assemblePositive().includes('<lora:abc:0.75>'));
+
+resetSel();
+const ir = importPromptText('masterpiece, 1girl, smile, BREAK, safe\nNegative prompt: lowres, (bad hands:1.3)\nSteps: 20, Sampler: Euler', true);
+check('import skips auto quality/rating tags', ir.auto === 2, JSON.stringify(ir));
+check('import counts BREAK', ir.breaks === 1);
+check('import reads negative block', state.negativeTags.has('lowres') && state.negativeTags.get('bad hands').weight === 1.3, JSON.stringify([...state.negativeTags.keys()]));
+check('import drops Steps line', ![...state.negativeTags.keys()].some(k => /Steps|Sampler/.test(k)));
+importPromptText('1boy', true);
+check('replace mode clears previous', !state.slots[0].has('1girl') && state.slots[0].has('1boy'));
+check('replace without negative keeps negatives', state.negativeTags.has('lowres'));
+
+// share round-trip
+resetSel();
+state.slots[0].set('1girl', { weight: 1.0, locked: true, cat: 'subject' });
+state.slots[0].set('<lora:abc>', { weight: 0.6, locked: false, cat: 'manual' });
+state.negativeTags.set('lowres', { weight: 1.2, locked: false, cat: 'manual' });
+state.nsfwMode = true;
+const code = encodeShare();
+check('share code is url-safe', /^[A-Za-z0-9_-]+$/.test(code));
+const dec = decodeShareFromText('https://example.test/AnimaI.html#s=' + code);
+check('share decodes from full link', dec && dec.slots[0]['1girl'].locked === true && dec.nsfwMode === true);
+resetSel(); state.nsfwMode = false;
+restoreSelection(dec);
+check('share restores LoRA weight', state.slots[0].get('<lora:abc>').weight === 0.6);
+check('share restores negative weight', state.negativeTags.get('lowres').weight === 1.2);
+check('garbage share -> null', decodeShareFromText('#s=!!!') === null && decodeShareFromText('hello') === null);
+resetSel();
+state.slots[0].set('日本語タグ', { weight: 1, locked: false, cat: 'manual' });
+const jpCode = encodeShare();
+check('share handles non-ASCII', !!decodeShareFromText('s=' + jpCode).slots[0]['日本語タグ']);
+state.nsfwMode = false;
+
+// undo / redo
+resetSel();
+undoHistory.stack = []; undoHistory.idx = -1;
+recordHistory();
+state.slots[0].set('1girl', { weight: 1, locked: false, cat: 'subject' }); recordHistory();
+state.slots[0].set('smile', { weight: 1, locked: false, cat: 'expression' }); recordHistory();
+check('history records steps', undoHistory.stack.length === 3);
+undo();
+check('undo removes last tag', state.slots[0].has('1girl') && !state.slots[0].has('smile'));
+undo();
+check('undo to empty', state.slots[0].size === 0);
+check('undo at start is no-op', undo() === false);
+redo(); redo();
+check('redo restores', state.slots[0].has('smile'));
+state.slots[0].delete('smile'); recordHistory();
+check('new change drops redo branch', redo() === false && undoHistory.idx === undoHistory.stack.length - 1);
+
+// reorder
+resetSel();
+['a', 'b', 'c'].forEach(p => state.slots[0].set(p, { weight: 1, locked: false, cat: 'manual' }));
+reorderPool(state.slots[0], 'c', 'a', false);
+check('reorder before', [...state.slots[0].keys()].join() === 'c,a,b');
+reorderPool(state.slots[0], 'c', 'b', true);
+check('reorder after', [...state.slots[0].keys()].join() === 'a,b,c');
+
+// おまかせ exclusion
+resetSel();
+state.randomExclude = new Set(['subject', 'hair', 'expression']);
+for (let i = 0; i < 5; i++) randomize();
+check('excluded categories not picked', ![...state.slots[0].values()].some(m => ['subject', 'hair', 'expression'].includes(m.cat)));
+state.randomExclude = new Set();
+
+// manual weight on manual tags
+resetSel();
+state.slots[0].set('custom', { weight: 1, locked: false, cat: 'manual' });
+setWeight(state.slots[0], 'custom', 0.2);
+check('manual tag weight applies', assemblePositive().includes('(custom:1.2)'));
+
+// suggest
+const sg = suggestCandidates('ツイン', false);
+check('suggest by japanese', sg.length > 0 && sg.some(c => c.item.prompt.includes('twin')), JSON.stringify(sg.map(c => c.item.prompt)));
+const sg2 = suggestCandidates('long', false);
+check('suggest prefix first', sg2.length > 0 && sg2[0].item.prompt.startsWith('long'), sg2.map(c => c.item.prompt).join('|'));
+state.nsfwMode = false;
+check('suggest hides NSFW in SFW mode', !suggestCandidates('nude', false).some(c => c.cat.section === 'nsfw'));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

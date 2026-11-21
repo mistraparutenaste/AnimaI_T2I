@@ -197,6 +197,82 @@ setTimeout(() => {
     // --- category title is keyboard-focusable button ---
     check('category title is a button', document.querySelector('.category-title').tagName === 'BUTTON');
 
+    // ===== v2.2 UI =====
+    const posOut = () => document.getElementById('positive-prompt-output').value;
+    const key = (target, k, extra = {}) => target.dispatchEvent(new window.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...extra }));
+    document.getElementById('nsfw-toggle').checked = false;
+    document.getElementById('nsfw-toggle').dispatchEvent(new window.Event('change'));
+    document.getElementById('clear-positive-btn').click();
+
+    // --- paste import ---
+    document.getElementById('paste-import-btn').click();
+    check('paste modal opens', document.getElementById('import-modal').style.display === 'flex');
+    document.getElementById('import-text').value = '1girl, (long hair:1.2), <lora:test:0.7>\nNegative prompt: lowres';
+    document.getElementById('import-run').click();
+    check('paste modal closes after import', document.getElementById('import-modal').style.display === 'none');
+    check('pasted tags in output', posOut().includes('(long hair:1.2)') && posOut().endsWith('<lora:test:0.7>'), posOut());
+    check('pasted negative in output', document.getElementById('negative-prompt-output').value.includes('lowres'));
+    check('toast shows summary', document.getElementById('toast').textContent.includes('読み込み'));
+    const loraChip = [...document.querySelectorAll('#selected-chips .chip')].find(c => c.textContent.includes('<lora:test>'));
+    check('LoRA chip has weight controls', !!(loraChip && loraChip.querySelector('button[title="重み +0.1"]')));
+    check('chips are draggable', loraChip && loraChip.draggable === true);
+
+    // --- undo / redo buttons ---
+    const undoBtn = document.getElementById('undo-btn');
+    check('undo enabled after changes', !undoBtn.disabled);
+    undoBtn.click();
+    check('undo reverts paste import', !posOut().includes('long hair'), posOut());
+    document.getElementById('redo-btn').click();
+    check('redo re-applies', posOut().includes('long hair'), posOut());
+    document.body.focus();
+    key(document.body, 'z', { ctrlKey: true });
+    check('Ctrl+Z shortcut undoes', !posOut().includes('long hair'));
+    key(document.body, 'y', { ctrlKey: true });
+    check('Ctrl+Y shortcut redoes', posOut().includes('long hair'));
+
+    // --- '/' focuses search ---
+    key(document.body, '/');
+    check('"/" focuses search', document.activeElement === document.getElementById('tag-search-input'));
+    document.getElementById('tag-search-input').value = 'twin';
+    key(document.getElementById('tag-search-input'), 'Escape');
+    check('Esc clears search', document.getElementById('tag-search-input').value === '');
+
+    // --- autocomplete ---
+    const mpi = document.getElementById('manual-positive-input');
+    mpi.focus();
+    mpi.value = 'ツイン';
+    mpi.dispatchEvent(new window.Event('input'));
+    const list = document.getElementById('manual-positive-input-suggest');
+    check('suggest list opens', list && !list.hidden && list.children.length > 0);
+    check('combobox expanded', mpi.getAttribute('aria-expanded') === 'true');
+    key(mpi, 'ArrowDown');
+    check('arrow selects option', mpi.getAttribute('aria-activedescendant') === 'manual-positive-input-suggest-0');
+    const firstPrompt = list.querySelector('.suggest-en').textContent;
+    key(mpi, 'Enter');
+    check('Enter adds suggested tag', posOut().includes(firstPrompt), firstPrompt + ' / ' + posOut());
+    check('input cleared after accept', mpi.value === '');
+    check('suggested tag keeps its category (star shown)', [...document.querySelectorAll('#selected-chips .chip')]
+        .some(c => c.textContent.includes(firstPrompt) && c.querySelector('.chip-fav')));
+    mpi.value = 'free text tag';
+    key(mpi, 'Enter');
+    check('plain Enter still adds typed text', posOut().includes('free text tag'));
+
+    // --- おまかせ対象 ---
+    document.getElementById('random-config-btn').click();
+    const cfg = document.getElementById('random-config');
+    check('random config panel opens', !cfg.hidden && cfg.querySelectorAll('input[type=checkbox]').length >= 10);
+    document.getElementById('random-none-btn').click();
+    document.getElementById('clear-positive-btn').click();
+    const emptyOut = posOut();
+    document.getElementById('random-btn').click();
+    check('no categories -> randomize adds nothing', posOut() === emptyOut, posOut());
+    document.getElementById('random-all-btn').click();
+
+    // --- share / mobile bar ---
+    check('share button present', !!document.getElementById('share-btn'));
+    check('mobile copy bar present', !!document.getElementById('mobile-copy-pos'));
+    check('mobile token count updates', /\d+ \/ 75 tok/.test(document.getElementById('mobile-token-count').textContent));
+
     console.log(`\n${pass} passed, ${fail} failed`);
     process.exit(fail ? 1 : 0);
 }, 300);
