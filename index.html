@@ -45,8 +45,8 @@
             <section class="tag-selection-section">
                 <!-- 検索 -->
                 <div class="search-bar">
-                    <input type="text" id="tag-search-input" placeholder="タグを検索 (日本語/英語)...">
-                    <button id="tag-search-clear" class="btn btn-secondary btn-sm">×</button>
+                    <input type="search" id="tag-search-input" aria-label="タグを検索" placeholder="タグを検索 (日本語/英語)...">
+                    <button id="tag-search-clear" class="btn btn-secondary btn-sm" aria-label="検索をクリア">×</button>
                     <button id="random-btn" class="btn btn-primary btn-sm" title="ロックしていないカテゴリからランダム選択">おまかせ</button>
                 </div>
 
@@ -153,7 +153,7 @@
                         </div>
                     </div>
 
-                    <!-- ポジティブプロンプトプレビュー -->
+                    <!-- ネガティブプロンプトプレビュー -->
                     <div class="preview-card">
                         <div class="preview-header">
                             <h2>ネガティブプロンプト</h2>
@@ -185,10 +185,13 @@
 
         <!-- プリセット編集モーダル -->
         <div id="preset-modal" class="modal-backdrop" style="display:none;">
-            <div class="modal-content">
+            <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="preset-modal-title">
                 <div class="modal-header">
-                    <h2>モデルプリセット編集</h2>
-                    <button id="preset-modal-close" class="btn btn-secondary btn-sm">閉じる</button>
+                    <h2 id="preset-modal-title">モデルプリセット編集</h2>
+                    <div class="modal-header-actions">
+                        <button id="preset-reset-btn" class="btn btn-secondary btn-sm" title="build.py の初期値に戻す">初期値に戻す</button>
+                        <button id="preset-modal-close" class="btn btn-secondary btn-sm">閉じる</button>
+                    </div>
                 </div>
                 <p class="modal-note">品質タグ・年代タグは「品質タグ自動」がONのときプロンプト末尾に付与されます。変更は自動保存されます。</p>
                 <div id="preset-editor-list"></div>
@@ -196,7 +199,7 @@
         </div>
 
         <footer class="app-footer">
-            <p>AnimaI T2I v2 — Danbooruタグベースのプロンプトビルダー (Illustrious / NoobAI / Animagine 対応)</p>
+            <p>AnimaI T2I v2.1 — Danbooruタグベースのプロンプトビルダー (Illustrious / NoobAI / Animagine 対応)</p>
         </footer>
     </div>
     <script src="prompts-data.js"></script>

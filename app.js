@@ -15,15 +15,22 @@ const CHAR_SCOPED_SLOTS = new Set([
 
 const LS = {
     favorites: 'anima.favorites',
+    favTags: 'anima.favTags',
     presets: 'anima.presets',
     settings: 'anima.settings',
     theme: 'theme',
 };
 
+// Fields of a model preset that the user may edit (everything else, e.g. the
+// slot template, always comes from the current build so updates reach users).
+const PRESET_EDITABLE = ['quality', 'era', 'ratingAuto', 'negativeBase'];
+
+const FAV_CAT_ID = '__fav__';
+
 const state = {
     // model & settings
     modelId: 'illustrious',
-    presets: [],           // editable copies of MODEL_PRESETS
+    presets: [],           // MODEL_PRESETS merged with user edits
     nsfwMode: false,
     ratingAuto: true,      // insert safe/nsfw automatically
     qualityAuto: true,     // append preset quality/era tags automatically
@@ -35,8 +42,9 @@ const state = {
     negativeTags: new Map(),
 
     // runtime
-    tagElements: new Map(),   // `${catId}::${prompt}` -> button el
     favorites: [],
+    favTags: [],           // [{ cat, prompt, japanese }]
+    cardOpen: new Map(),   // category id -> open? (only after the user toggled it)
 };
 
 // ---------------------------------------------------------------------------
@@ -59,9 +67,47 @@ function saveJSON(key, value) {
     }
 }
 
+function loadString(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+}
+
+function saveString(key, value) {
+    try { localStorage.setItem(key, value); } catch (e) { /* ignore */ }
+}
+
+function defaultPresets() {
+    return (window.MODEL_PRESETS || []).map(p => ({
+        ...p,
+        quality: [...(p.quality || [])],
+        template: [...(p.template || [])],
+    }));
+}
+
+// Merge user edits (stored per id) onto the presets of the current build.
+function mergePresets(stored) {
+    const base = defaultPresets();
+    if (!Array.isArray(stored)) return base;
+    for (const p of base) {
+        const s = stored.find(x => x && x.id === p.id);
+        if (!s) continue;
+        for (const f of PRESET_EDITABLE) {
+            if (f in s) p[f] = f === 'quality' ? [...(s[f] || [])] : s[f];
+        }
+    }
+    return base;
+}
+
+function savePresets() {
+    saveJSON(LS.presets, state.presets.map(p => {
+        const o = { id: p.id };
+        for (const f of PRESET_EDITABLE) o[f] = p[f];
+        return o;
+    }));
+}
+
 function currentPreset() {
     if (!state.presets || state.presets.length === 0) {
-        state.presets = (window.MODEL_PRESETS || []).map(p => ({ ...p }));
+        state.presets = defaultPresets();
     }
     return state.presets.find(p => p.id === state.modelId) || state.presets[0];
 }
@@ -74,7 +120,7 @@ function countTokens(text) {
     let total = 0;
     for (const rawTag of text.split(',')) {
         const tag = rawTag.trim();
-        if (!tag) continue;
+        if (!tag || tag === 'BREAK') continue;
         total += 1; // comma overhead
         const words = tag.split(/[\s_]+/).filter(Boolean);
         for (const w of words) {
@@ -86,16 +132,26 @@ function countTokens(text) {
     return total;
 }
 
+// BREAK starts a new 75-token chunk, so each chunk is measured on its own.
+function countTokenChunks(text) {
+    if (!text) return [0];
+    return text.split(/(?:^|,)\s*BREAK\s*(?:,|$)/).map(countTokens);
+}
+
 // ---------------------------------------------------------------------------
 // Data access
 // ---------------------------------------------------------------------------
+let _catIndex = null;
 function allCategories() {
     const d = window.PROMPTS_DATA;
     return [...d.sfw, ...d.nsfw, ...d.negative];
 }
 
 function categoryById(id) {
-    return allCategories().find(c => c.id === id);
+    if (!_catIndex) {
+        _catIndex = new Map(allCategories().map(c => [c.id, c]));
+    }
+    return _catIndex.get(id);
 }
 
 function findTagCategory(prompt) {
@@ -103,6 +159,12 @@ function findTagCategory(prompt) {
         if (c.tags.some(t => t.prompt === prompt)) return c;
     }
     return null;
+}
+
+function tagDefault(cat, prompt) {
+    const item = cat && cat.tags ? cat.tags.find(t => t.prompt === prompt) : null;
+    const w = item && typeof item.weight === 'number' ? item.weight : 1.0;
+    return Math.min(1.9, Math.max(0.5, w));
 }
 
 // ---------------------------------------------------------------------------
@@ -120,24 +182,16 @@ function selectionTarget(cat) {
 
 function toggleTag(cat, prompt) {
     const target = selectionTarget(cat);
-    const key = `${cat.id}::${prompt}`;
     if (target.has(prompt)) {
         target.delete(prompt);
     } else {
-        target.set(prompt, { weight: 1.0, locked: false, cat: cat.id });
+        target.set(prompt, { weight: tagDefault(cat, prompt), locked: false, cat: cat.id });
     }
-    const btn = state.tagElements.get(key);
-    if (btn) btn.classList.toggle('active', target.has(prompt));
     refreshOutputs();
 }
 
 function removeTag(pool, prompt) {
-    const meta = pool.get(prompt);
     pool.delete(prompt);
-    if (meta) {
-        const btn = state.tagElements.get(`${meta.cat}::${prompt}`);
-        if (btn) btn.classList.remove('active');
-    }
     refreshOutputs();
 }
 
@@ -155,6 +209,54 @@ function toggleLock(pool, prompt) {
     if (!meta) return;
     meta.locked = !meta.locked;
     renderSelectedChips();
+}
+
+// Reflect the selection on every rendered tag button (category lists and the
+// favorite-tags card can show the same tag more than once).
+function syncTagButtons() {
+    if (!document.querySelectorAll) return;
+    document.querySelectorAll('.prompt-tag[data-prompt]').forEach(btn => {
+        const cat = categoryById(btn.dataset.cat);
+        if (!cat) return;
+        const prompt = btn.dataset.prompt;
+        const target = selectionTarget(cat);
+        const active = target.has(prompt);
+        const elsewhere = !active && cat.section !== 'negative'
+            && state.slots.some(pool => pool !== target && pool.has(prompt));
+        btn.classList.toggle('active', active);
+        btn.classList.toggle('in-other-slot', elsewhere);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Favorite tags
+// ---------------------------------------------------------------------------
+function isFavTag(catId, prompt) {
+    return state.favTags.some(f => f.cat === catId && f.prompt === prompt);
+}
+
+function toggleFavTag(cat, item) {
+    if (isFavTag(cat.id, item.prompt)) {
+        state.favTags = state.favTags.filter(f => !(f.cat === cat.id && f.prompt === item.prompt));
+    } else {
+        state.favTags.push({ cat: cat.id, prompt: item.prompt, japanese: item.japanese });
+    }
+    saveJSON(LS.favTags, state.favTags);
+    renderCategories();
+    refreshOutputs();
+}
+
+// Favorite tags of a section that still exist in the current data.
+function favTagsForSection(section) {
+    return state.favTags
+        .map(f => {
+            const cat = categoryById(f.cat);
+            if (!cat || cat.section !== section) return null;
+            const item = cat.tags.find(t => t.prompt === f.prompt);
+            return item ? { cat, item } : null;
+        })
+        .filter(Boolean);
 }
 
 // ---------------------------------------------------------------------------
@@ -178,6 +280,38 @@ function collectSlotTags(slotMap, slotName, preset) {
     return out;
 }
 
+// Template order plus any slot the template does not know about, so no
+// selected tag is ever silently dropped. Unknown slots go before "quality".
+function orderedSlots(template, groups) {
+    const extra = Object.keys(groups).filter(s => !template.includes(s));
+    if (extra.length === 0) return template;
+    const order = [...template];
+    const qi = order.indexOf('quality');
+    order.splice(qi >= 0 ? qi : order.length, 0, ...extra);
+    return order;
+}
+
+function groupPool(pool, template, emitted) {
+    const groups = {};
+    for (const slotName of template) groups[slotName] = [];
+    pool.forEach((meta, prompt) => {
+        const cat = categoryById(meta.cat);
+        const slot = cat ? cat.slot : 'composition';
+        if (!groups[slot]) groups[slot] = [];
+        const parts = prompt.split(',').map(s => s.trim()).filter(Boolean);
+        const kept = [];
+        for (const p of parts) {
+            const k = p.toLowerCase();
+            if (emitted.has(k)) continue;
+            emitted.add(k);
+            kept.push(p);
+        }
+        if (kept.length === 0) return; // fully duplicate entry
+        groups[slot].push(applyWeight(kept.join(', '), meta));
+    });
+    return groups;
+}
+
 function autoRatingTag() {
     if (!state.ratingAuto || !currentPreset().ratingAuto) return null;
     return state.nsfwMode ? 'nsfw' : 'safe';
@@ -195,82 +329,49 @@ function autoEraTag() {
     return p.era || null;
 }
 
+function pushUnique(arr, tag, front) {
+    const k = tag.toLowerCase();
+    if (arr.some(t => t.toLowerCase() === k)) return;
+    if (front) arr.unshift(tag); else arr.push(tag);
+}
+
 function assemblePositive() {
     const preset = currentPreset();
     const template = preset.template || [];
-
-    // --- single / shared pool ---
-    const sharedPool = state.slots[0];
-    const groups = {}; // slotName -> [string]
     const emitted = new Set(); // final-prompt level tag dedupe
 
-    for (const slotName of template) groups[slotName] = [];
+    const groups = groupPool(state.slots[0], template, emitted);
+    for (const s of ['rating', 'quality', 'era']) if (!groups[s]) groups[s] = [];
 
-    // distribute selected tags into slots (keep selection order inside slot)
-    sharedPool.forEach((meta, prompt) => {
-        const cat = categoryById(meta.cat);
-        const slot = cat ? cat.slot : 'composition';
-        if (!groups[slot]) groups[slot] = [];
-        const parts = prompt.split(',').map(s => s.trim()).filter(Boolean);
-        const kept = [];
-        for (const p of parts) {
-            const k = p.toLowerCase();
-            if (emitted.has(k)) continue;
-            emitted.add(k);
-            kept.push(p);
-        }
-        if (kept.length === 0) return; // fully duplicate entry
-        groups[slot].push(applyWeight(kept.join(', '), meta));
-    });
-
-    // auto rating
     const rating = autoRatingTag();
-    if (rating && !groups.rating.includes(rating)) groups.rating.unshift(rating);
-    // auto quality
+    if (rating && !emitted.has(rating)) { pushUnique(groups.rating, rating, true); emitted.add(rating); }
     for (const q of autoQualityTags()) {
-        if (!groups.quality.includes(q)) groups.quality.push(q);
+        if (!emitted.has(q.toLowerCase())) { pushUnique(groups.quality, q); emitted.add(q.toLowerCase()); }
     }
-    // auto era
     const era = autoEraTag();
-    if (era && !groups.era.includes(era)) groups.era.push(era);
+    if (era && !emitted.has(era.toLowerCase())) { pushUnique(groups.era, era); emitted.add(era.toLowerCase()); }
 
+    const order = orderedSlots(template, groups);
     let result = [];
     if (!state.multiChar) {
-        result = template.flatMap(s => groups[s] || []);
+        result = order.flatMap(s => groups[s] || []);
     } else {
         // multi-character: subject & rating first, then BREAK-separated chars,
         // then remaining shared slots in template order
-        result.push(...(groups.subject || []));
-        result.push(...(groups.rating || []));
-        result.push(...(groups.character || []));
+        const head = ['subject', 'character', 'rating', 'rating_adj'];
+        for (const s of head) result.push(...(groups[s] || []));
         const charBlocks = [];
         const charEmitted = new Set(emitted); // shared tags already emitted
         for (let i = 1; i <= 3; i++) {
             const pool = state.slots[i];
             if (pool.size === 0) continue;
-            const charGroups = {};
-            for (const slotName of template) charGroups[slotName] = [];
-            pool.forEach((meta, prompt) => {
-                const cat = categoryById(meta.cat);
-                const slot = cat ? cat.slot : 'composition';
-                if (!charGroups[slot]) charGroups[slot] = [];
-                const parts = prompt.split(',').map(s => s.trim()).filter(Boolean);
-                const kept = [];
-                for (const p of parts) {
-                    const k = p.toLowerCase();
-                    if (charEmitted.has(k)) continue;
-                    charEmitted.add(k);
-                    kept.push(p);
-                }
-                if (kept.length === 0) return;
-                charGroups[slot].push(applyWeight(kept.join(', '), meta));
-            });
-            const block = template.flatMap(s => charGroups[s] || []);
+            const charGroups = groupPool(pool, template, charEmitted);
+            const block = orderedSlots(template, charGroups).flatMap(s => charGroups[s] || []);
             if (block.length) charBlocks.push(block.join(', '));
         }
         if (charBlocks.length) result.push(charBlocks.join(', BREAK, '));
-        for (const s of template) {
-            if (['subject', 'character', 'rating'].includes(s)) continue;
+        for (const s of order) {
+            if (head.includes(s)) continue;
             result.push(...(groups[s] || []));
         }
     }
@@ -301,63 +402,124 @@ function assembleNegative() {
 // ---------------------------------------------------------------------------
 function renderCategories() {
     const d = window.PROMPTS_DATA;
-    const sfwEl = document.getElementById('sfw-categories');
-    const nsfwEl = document.getElementById('nsfw-categories');
-    const negEl = document.getElementById('negative-categories');
-    state.tagElements.clear();
-    renderCategoryList(d.sfw, sfwEl, false, true);
-    renderCategoryList(d.nsfw, nsfwEl, false, false);
-    renderCategoryList(d.negative, negEl, true, true);
+    renderCategoryList(d.sfw, document.getElementById('sfw-categories'), 'sfw');
+    renderCategoryList(d.nsfw, document.getElementById('nsfw-categories'), 'nsfw');
+    renderCategoryList(d.negative, document.getElementById('negative-categories'), 'negative');
+    applySearchFilter();
+    syncTagButtons();
 }
 
-function renderCategoryList(categories, containerEl, isNegative, defaultOpenFirst) {
+function makeCategoryCard(id, label, count, entries, isOpen) {
+    const card = document.createElement('div');
+    card.className = 'category-card' + (isOpen ? '' : ' collapsed');
+    card.dataset.cat = id;
+
+    const bodyId = `cat-body-${id}`;
+    const title = document.createElement('button');
+    title.type = 'button';
+    title.className = 'category-title';
+    title.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    title.setAttribute('aria-controls', bodyId);
+    const titleText = document.createElement('span');
+    titleText.className = 'category-title-text';
+    titleText.textContent = label;
+    const countEl = document.createElement('span');
+    countEl.className = 'category-count';
+    countEl.textContent = `(${count})`;
+    titleText.appendChild(document.createTextNode(' '));
+    titleText.appendChild(countEl);
+    title.appendChild(titleText);
+    title.addEventListener('click', () => {
+        // a card opened by an active search counts as open
+        const wasOpen = !card.classList.contains('collapsed') || card.classList.contains('search-open');
+        card.classList.remove('search-open');
+        card.classList.toggle('collapsed', wasOpen);
+        title.setAttribute('aria-expanded', wasOpen ? 'false' : 'true');
+        state.cardOpen.set(id, !wasOpen);
+    });
+
+    const body = document.createElement('div');
+    body.className = 'category-body';
+    body.id = bodyId;
+    const inner = document.createElement('div');
+    inner.className = 'category-body-inner';
+    entries.forEach(({ cat, item }) => inner.appendChild(createTagElement(cat, item)));
+
+    const none = document.createElement('div');
+    none.className = 'loading no-match';
+    none.textContent = '一致するタグなし';
+    none.hidden = true;
+    inner.appendChild(none);
+
+    body.appendChild(inner);
+    card.appendChild(title);
+    card.appendChild(body);
+    return card;
+}
+
+function renderCategoryList(categories, containerEl, section) {
+    if (!containerEl) return;
     containerEl.innerHTML = '';
     if (!categories || categories.length === 0) {
         containerEl.innerHTML = '<div class="loading">データがありません。</div>';
         return;
     }
-    const filter = (document.getElementById('tag-search-input')?.value || '').toLowerCase();
+
+    const isOpen = (id, dflt) => state.cardOpen.has(id) ? state.cardOpen.get(id) : dflt;
+
+    // favorite tags of this section, pinned on top
+    const favEntries = favTagsForSection(section);
+    if (favEntries.length > 0) {
+        const favId = FAV_CAT_ID + section;
+        const card = makeCategoryCard(favId, '★ お気に入りタグ', favEntries.length, favEntries, isOpen(favId, true));
+        card.classList.add('fav-card');
+        containerEl.appendChild(card);
+    }
 
     categories.forEach((cat, index) => {
-        const card = document.createElement('div');
-        card.className = `category-card${defaultOpenFirst && index === 0 ? '' : ' collapsed'}`;
-        card.dataset.cat = cat.id;
+        const dflt = section !== 'nsfw' && index === 0 && favEntries.length === 0;
+        containerEl.appendChild(makeCategoryCard(cat.id, cat.name, cat.tags.length,
+            cat.tags.map(item => ({ cat, item })), isOpen(cat.id, dflt)));
+    });
+}
 
-        const title = document.createElement('div');
-        title.className = 'category-title';
-        title.textContent = `${cat.name} (${cat.tags.length})`;
-        title.addEventListener('click', () => card.classList.toggle('collapsed'));
-
-        const body = document.createElement('div');
-        body.className = 'category-body';
-        const inner = document.createElement('div');
-        inner.className = 'category-body-inner';
-
+// Show/hide tag buttons in place (no re-render, keeps open/closed state).
+// While a query is active, categories with matches are opened automatically.
+function applySearchFilter() {
+    const input = document.getElementById('tag-search-input');
+    const filter = ((input && input.value) || '').trim().toLowerCase();
+    document.querySelectorAll('.category-card').forEach(card => {
+        const tags = card.querySelectorAll('.prompt-tag-item');
         let visible = 0;
-        cat.tags.forEach(item => {
-            if (filter && !item.japanese.toLowerCase().includes(filter)
-                && !item.prompt.toLowerCase().includes(filter)) return;
-            visible++;
-            inner.appendChild(createTagElement(cat, item));
+        tags.forEach(el => {
+            const hit = !filter || (el.dataset.search || '').includes(filter);
+            el.hidden = !hit;
+            if (hit) visible++;
         });
-
-        if (filter && visible === 0) {
-            const none = document.createElement('div');
-            none.className = 'loading';
-            none.textContent = '一致するタグなし';
-            inner.appendChild(none);
+        const none = card.querySelector('.no-match');
+        if (none) none.hidden = !(filter && visible === 0);
+        const countEl = card.querySelector('.category-count');
+        if (countEl) countEl.textContent = filter ? `(${visible}/${tags.length})` : `(${tags.length})`;
+        card.classList.toggle('search-open', !!filter && visible > 0);
+        card.classList.toggle('search-empty', !!filter && visible === 0);
+        const title = card.querySelector('.category-title');
+        if (title) {
+            const open = !card.classList.contains('collapsed') || card.classList.contains('search-open');
+            title.setAttribute('aria-expanded', open ? 'true' : 'false');
         }
-
-        body.appendChild(inner);
-        card.appendChild(title);
-        card.appendChild(body);
-        containerEl.appendChild(card);
     });
 }
 
 function createTagElement(cat, item) {
+    const wrap = document.createElement('span');
+    wrap.className = 'prompt-tag-item';
+    wrap.dataset.search = `${item.japanese}\n${item.prompt}`.toLowerCase();
+
     const btn = document.createElement('button');
+    btn.type = 'button';
     btn.className = 'prompt-tag';
+    btn.dataset.cat = cat.id;
+    btn.dataset.prompt = item.prompt;
 
     const jp = document.createElement('span');
     jp.className = 'jp-name';
@@ -369,20 +531,27 @@ function createTagElement(cat, item) {
 
     btn.appendChild(jp);
     btn.appendChild(en);
-
-    // restore active state
-    const isActive = [...(selectionTarget(cat).keys())].includes(item.prompt)
-        || (cat.section !== 'negative'
-            && state.slots.some(pool => pool.has(item.prompt)));
-    if (isActive) btn.classList.add('active');
-
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
         toggleTag(cat, item.prompt);
     });
 
-    state.tagElements.set(`${cat.id}::${item.prompt}`, btn);
-    return btn;
+    const fav = isFavTag(cat.id, item.prompt);
+    const star = document.createElement('button');
+    star.type = 'button';
+    star.className = 'tag-fav-btn' + (fav ? ' is-fav' : '');
+    star.textContent = fav ? '★' : '☆';
+    star.title = fav ? 'お気に入りタグから外す' : 'お気に入りタグに追加';
+    star.setAttribute('aria-label', `${item.japanese} を${star.title}`);
+    star.setAttribute('aria-pressed', fav ? 'true' : 'false');
+    star.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleFavTag(cat, item);
+    });
+
+    wrap.appendChild(btn);
+    wrap.appendChild(star);
+    return wrap;
 }
 
 // ---------------------------------------------------------------------------
@@ -431,6 +600,20 @@ function renderSelectedChips() {
                 chip.appendChild(minus);
                 chip.appendChild(w);
                 chip.appendChild(plus);
+
+                const cat = categoryById(meta.cat);
+                if (cat) {
+                    const fav = isFavTag(cat.id, prompt);
+                    const star = document.createElement('button');
+                    star.className = 'chip-fav' + (fav ? ' is-fav' : '');
+                    star.textContent = fav ? '★' : '☆';
+                    star.title = fav ? 'お気に入りタグから外す' : 'お気に入りタグに追加';
+                    star.addEventListener('click', () => {
+                        const item = cat.tags.find(t => t.prompt === prompt) || { prompt, japanese: prompt };
+                        toggleFavTag(cat, item);
+                    });
+                    chip.appendChild(star);
+                }
             }
 
             const lock = document.createElement('button');
@@ -464,26 +647,37 @@ function renderSelectedChips() {
 // ---------------------------------------------------------------------------
 // Rendering: outputs & token counters
 // ---------------------------------------------------------------------------
+function tokenLabel(text) {
+    const chunks = countTokenChunks(text);
+    const max = Math.max(...chunks);
+    const label = chunks.length > 1
+        ? `約 ${chunks.join(' + ')} トークン (BREAK ${chunks.length}ブロック・各75まで)`
+        : `約 ${chunks[0]} / 75 トークン`;
+    const cls = 'token-count' + (max > 75 ? ' over' : max > 60 ? ' warn' : '');
+    return { label, cls };
+}
+
 function refreshOutputs() {
     const pos = assemblePositive();
     const neg = assembleNegative();
     document.getElementById('positive-prompt-output').value = pos;
     document.getElementById('negative-prompt-output').value = neg;
 
-    const posTok = countTokens(pos);
-    const negTok = countTokens(neg);
     const posEl = document.getElementById('pos-token-count');
     const negEl = document.getElementById('neg-token-count');
-    posEl.textContent = `約 ${posTok} / 75 トークン`;
-    posEl.className = 'token-count' + (posTok > 75 ? ' over' : posTok > 60 ? ' warn' : '');
-    negEl.textContent = `約 ${negTok} / 75 トークン`;
-    negEl.className = 'token-count' + (negTok > 75 ? ' over' : negTok > 60 ? ' warn' : '');
+    const p = tokenLabel(pos);
+    const n = tokenLabel(neg);
+    posEl.textContent = p.label;
+    posEl.className = p.cls;
+    negEl.textContent = n.label;
+    negEl.className = n.cls;
 
     // model badge on positive card
     const badge = document.getElementById('model-badge');
     if (badge) badge.textContent = currentPreset().name;
 
     renderSelectedChips();
+    syncTagButtons();
 }
 
 // ---------------------------------------------------------------------------
@@ -497,19 +691,12 @@ const RANDOM_CATEGORIES = [
 ];
 
 function randomize() {
-    const pools = state.multiChar
-        ? (state.activeSlot > 0 ? [state.slots[state.activeSlot]] : [state.slots[0]])
-        : [state.slots[0]];
-
     for (const catId of RANDOM_CATEGORIES) {
         const cat = categoryById(catId);
-        if (!cat) continue;
+        if (!cat || cat.section === 'negative') continue;
         if (catId.startsWith('n_') && !state.nsfwMode) continue;
-        if (!catId.startsWith('n_') && (cat.section === 'negative')) continue;
 
-        const pool = (state.multiChar && CHAR_SCOPED_SLOTS.has(catId) && state.activeSlot > 0)
-            ? state.slots[state.activeSlot] : pools[0];
-        if (!pool) continue;
+        const pool = selectionTarget(cat);
 
         // keep locked tags of this category
         const locked = [];
@@ -517,22 +704,18 @@ function randomize() {
             if (meta.cat === catId) {
                 if (meta.locked) locked.push({ prompt, meta });
                 pool.delete(prompt);
-                const btn = state.tagElements.get(`${catId}::${prompt}`);
-                if (btn) btn.classList.remove('active');
             }
         });
 
-        const skipChance = ['accessories', 'effect', 'art_style', 'era', 'situation'].includes(catId) ? 0.35 : 0.1;
-        const mustPick = catId === 'subject' || catId === 'hair' || catId === 'expression';
-        if (!mustPick && Math.random() < skipChance) {
-            locked.forEach(l => pool.set(l.prompt, l.meta));
-            continue;
-        }
-        const pick = cat.tags[Math.floor(Math.random() * cat.tags.length)];
-        if (pick) {
-            pool.set(pick.prompt, { weight: 1.0, locked: false, cat: catId });
-            const btn = state.tagElements.get(`${catId}::${pick.prompt}`);
-            if (btn) btn.classList.add('active');
+        if (locked.length === 0) {
+            const skipChance = ['accessories', 'effect', 'art_style', 'era', 'situation'].includes(catId) ? 0.35
+                : (catId.startsWith('n_') && catId !== 'n_nsfw') ? 0.5
+                : 0.1;
+            const mustPick = catId === 'subject' || catId === 'hair' || catId === 'expression';
+            if (mustPick || Math.random() >= skipChance) {
+                const pick = cat.tags[Math.floor(Math.random() * cat.tags.length)];
+                if (pick) pool.set(pick.prompt, { weight: tagDefault(cat, pick.prompt), locked: false, cat: catId });
+            }
         }
         locked.forEach(l => pool.set(l.prompt, l.meta));
     }
@@ -545,7 +728,7 @@ function randomize() {
 function serializeSelection() {
     const ser = m => {
         const o = {};
-        m.forEach((meta, prompt) => o[prompt] = meta);
+        m.forEach((meta, prompt) => o[prompt] = { ...meta });
         return o;
     };
     return {
@@ -559,22 +742,38 @@ function serializeSelection() {
     };
 }
 
+function sanitizeMeta(meta) {
+    const m = meta && typeof meta === 'object' ? meta : {};
+    let w = Number(m.weight);
+    if (!isFinite(w) || w <= 0) w = 1.0;
+    w = Math.min(1.9, Math.max(0.5, Math.round(w * 10) / 10));
+    return { weight: w, locked: !!m.locked, cat: typeof m.cat === 'string' ? m.cat : 'manual' };
+}
+
 function restoreSelection(data) {
+    if (!data || typeof data !== 'object') return;
     const deser = o => {
         const m = new Map();
-        Object.entries(o || {}).forEach(([prompt, meta]) => m.set(prompt, meta));
+        if (o && typeof o === 'object') {
+            Object.entries(o).forEach(([prompt, meta]) => m.set(prompt, sanitizeMeta(meta)));
+        }
         return m;
     };
-    state.modelId = data.modelId || state.modelId;
+    if (data.modelId && state.presets.some(p => p.id === data.modelId)) state.modelId = data.modelId;
     state.nsfwMode = !!data.nsfwMode;
     state.multiChar = !!data.multiChar;
+    state.activeSlot = 0;
     state.ratingAuto = data.ratingAuto !== false;
     state.qualityAuto = data.qualityAuto !== false;
-    state.slots = [0, 1, 2, 3].map(i => deser(data.slots ? data.slots[i] : {}));
+    state.slots = [0, 1, 2, 3].map(i => deser(Array.isArray(data.slots) ? data.slots[i] : {}));
     state.negativeTags = deser(data.negative);
+    saveSettings();
     syncControlsFromState();
-    renderCategories();
     refreshOutputs();
+}
+
+function hasSelection() {
+    return state.slots.some(s => s.size > 0) || state.negativeTags.size > 0;
 }
 
 function renderFavorites() {
@@ -588,6 +787,8 @@ function renderFavorites() {
     state.favorites.forEach(preset => {
         const item = document.createElement('div');
         item.className = 'favorite-item';
+        item.tabIndex = 0;
+        item.setAttribute('role', 'button');
 
         const content = document.createElement('div');
         content.className = 'favorite-item-content';
@@ -598,11 +799,25 @@ function renderFavorites() {
         metaEl.className = 'favorite-item-meta';
         const totalTags = (preset.data?.slots || []).reduce((a, s) => a + Object.keys(s || {}).length, 0)
             + Object.keys(preset.data?.negative || {}).length;
-        metaEl.innerHTML = `<span>タグ: ${totalTags}</span> <span>${preset.data?.modelId || ''}</span>`;
+        const tagSpan = document.createElement('span');
+        tagSpan.textContent = `タグ: ${totalTags}`;
+        const modelSpan = document.createElement('span');
+        const model = state.presets.find(p => p.id === preset.data?.modelId);
+        modelSpan.textContent = model ? model.name : String(preset.data?.modelId || '');
+        metaEl.appendChild(tagSpan);
+        metaEl.appendChild(document.createTextNode(' '));
+        metaEl.appendChild(modelSpan);
         content.appendChild(nameEl);
         content.appendChild(metaEl);
 
-        item.addEventListener('click', () => restoreSelection(preset.data));
+        const load = () => {
+            if (hasSelection() && !confirm(`「${preset.name}」を読み込みます。現在の選択は置き換えられます。よろしいですか？`)) return;
+            restoreSelection(preset.data);
+        };
+        item.addEventListener('click', load);
+        item.addEventListener('keydown', (e) => {
+            if (e.target === item && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); load(); }
+        });
 
         const actions = document.createElement('div');
         actions.className = 'favorite-item-actions';
@@ -610,7 +825,8 @@ function renderFavorites() {
         deleteBtn.className = 'fav-delete-btn';
         deleteBtn.textContent = '×';
         deleteBtn.title = '削除';
-        deleteBtn.addEventListener('click', async (e) => {
+        deleteBtn.setAttribute('aria-label', `お気に入り「${preset.name}」を削除`);
+        deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             if (confirm(`お気に入り「${preset.name}」を削除してもよろしいですか？`)) {
                 state.favorites = state.favorites.filter(f => f.name !== preset.name);
@@ -629,9 +845,8 @@ function renderFavorites() {
 function saveFavorite() {
     const inputEl = document.getElementById('favorite-name-input');
     const name = inputEl.value.trim();
-    const hasAny = state.slots.some(s => s.size > 0) || state.negativeTags.size > 0;
     if (!name) { alert('お気に入りの名前を入力してください。'); return; }
-    if (!hasAny) { alert('プロンプトが選択されていません。'); return; }
+    if (!hasSelection()) { alert('プロンプトが選択されていません。'); return; }
     if (state.favorites.some(f => f.name === name)) {
         if (!confirm(`「${name}」を上書きしますか？`)) return;
         state.favorites = state.favorites.filter(f => f.name !== name);
@@ -643,28 +858,55 @@ function saveFavorite() {
 }
 
 function exportFavorites() {
-    const blob = new Blob([JSON.stringify(state.favorites, null, 2)], { type: 'application/json' });
+    const payload = { app: 'AnimaI T2I', version: 2, favorites: state.favorites, favoriteTags: state.favTags };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'animaI-favorites.json';
     a.click();
-    URL.revokeObjectURL(a.href);
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// Accepts the v2 object format and the legacy plain-array format.
+function mergeImportedFavorites(imported) {
+    let favs, tags;
+    if (Array.isArray(imported)) { favs = imported; tags = []; }
+    else if (imported && typeof imported === 'object') {
+        favs = Array.isArray(imported.favorites) ? imported.favorites : [];
+        tags = Array.isArray(imported.favoriteTags) ? imported.favoriteTags : [];
+    } else throw new Error('format');
+
+    const names = new Set(state.favorites.map(f => f.name));
+    let added = 0;
+    for (const f of favs) {
+        if (!f || typeof f.name !== 'string' || !f.name || !f.data || typeof f.data !== 'object') continue;
+        let name = f.name;
+        for (let i = 2; names.has(name); i++) name = `${f.name} (${i})`;
+        names.add(name);
+        state.favorites.push({ name, data: f.data });
+        added++;
+    }
+    let addedTags = 0;
+    for (const t of tags) {
+        if (!t || typeof t.cat !== 'string' || typeof t.prompt !== 'string') continue;
+        if (isFavTag(t.cat, t.prompt)) continue;
+        state.favTags.push({ cat: t.cat, prompt: t.prompt, japanese: String(t.japanese || t.prompt) });
+        addedTags++;
+    }
+    return { added, addedTags };
 }
 
 function importFavorites(file) {
     const reader = new FileReader();
     reader.onload = () => {
         try {
-            const imported = JSON.parse(reader.result);
-            if (!Array.isArray(imported)) throw new Error('format');
-            const names = new Set(state.favorites.map(f => f.name));
-            for (const f of imported) {
-                if (!f || !f.name || !f.data) continue;
-                if (names.has(f.name)) f.name = f.name + ' (imported)';
-                state.favorites.push(f);
-            }
+            const res = mergeImportedFavorites(JSON.parse(reader.result));
             saveJSON(LS.favorites, state.favorites);
+            saveJSON(LS.favTags, state.favTags);
             renderFavorites();
+            renderCategories();
+            refreshOutputs();
+            alert(`読み込み完了: お気に入り ${res.added} 件 / お気に入りタグ ${res.addedTags} 件`);
         } catch (e) {
             alert('読み込みに失敗しました。JSON形式が正しくありません。');
         }
@@ -675,46 +917,89 @@ function importFavorites(file) {
 // ---------------------------------------------------------------------------
 // Preset editor modal
 // ---------------------------------------------------------------------------
-function openPresetModal() {
-    const modal = document.getElementById('preset-modal');
+let _modalReturnFocus = null;
+
+function presetField(labelText, input) {
+    const label = document.createElement('label');
+    label.appendChild(document.createTextNode(labelText));
+    label.appendChild(input);
+    return label;
+}
+
+function renderPresetEditor() {
     const list = document.getElementById('preset-editor-list');
     list.innerHTML = '';
     state.presets.forEach(p => {
         const row = document.createElement('div');
         row.className = 'preset-editor-row';
-        row.innerHTML = `
-            <div class="preset-editor-name">${p.name}</div>
-            <label>品質タグ（カンマ区切り）
-                <input type="text" data-field="quality" value="${(p.quality || []).join(', ')}">
-            </label>
-            <label>年代タグ（空欄で無効）
-                <input type="text" data-field="era" value="${p.era || ''}">
-            </label>
-            <label>レーティング自動挿入
-                <input type="checkbox" data-field="ratingAuto" ${p.ratingAuto ? 'checked' : ''}>
-            </label>
-            <label>推奨ネガティブ（初期値）
-                <textarea data-field="negativeBase" rows="2">${p.negativeBase || ''}</textarea>
-            </label>
-        `;
-        row.querySelectorAll('[data-field]').forEach(input => {
-            input.addEventListener('change', () => {
-                const f = input.dataset.field;
-                if (f === 'quality') p.quality = input.value.split(',').map(s => s.trim()).filter(Boolean);
-                else if (f === 'era') p.era = input.value.trim() || null;
-                else if (f === 'ratingAuto') p.ratingAuto = input.checked;
-                else if (f === 'negativeBase') p.negativeBase = input.value.trim();
-                saveJSON(LS.presets, state.presets);
-                refreshOutputs();
-            });
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'preset-editor-name';
+        nameEl.textContent = p.name;
+        row.appendChild(nameEl);
+
+        const quality = document.createElement('input');
+        quality.type = 'text';
+        quality.value = (p.quality || []).join(', ');
+        quality.addEventListener('change', () => {
+            p.quality = quality.value.split(',').map(s => s.trim()).filter(Boolean);
+            savePresets(); refreshOutputs();
         });
+        row.appendChild(presetField('品質タグ（カンマ区切り）', quality));
+
+        const era = document.createElement('input');
+        era.type = 'text';
+        era.value = p.era || '';
+        era.addEventListener('change', () => {
+            p.era = era.value.trim() || null;
+            savePresets(); refreshOutputs();
+        });
+        row.appendChild(presetField('年代タグ（空欄で無効）', era));
+
+        const rating = document.createElement('input');
+        rating.type = 'checkbox';
+        rating.checked = !!p.ratingAuto;
+        rating.addEventListener('change', () => {
+            p.ratingAuto = rating.checked;
+            savePresets(); refreshOutputs();
+        });
+        row.appendChild(presetField('レーティング自動挿入', rating));
+
+        const neg = document.createElement('textarea');
+        neg.rows = 2;
+        neg.value = p.negativeBase || '';
+        neg.addEventListener('change', () => {
+            p.negativeBase = neg.value.trim();
+            savePresets(); refreshOutputs();
+        });
+        row.appendChild(presetField('推奨ネガティブ（初期値）', neg));
+
         list.appendChild(row);
     });
+}
+
+function openPresetModal() {
+    _modalReturnFocus = document.activeElement;
+    renderPresetEditor();
+    const modal = document.getElementById('preset-modal');
     modal.style.display = 'flex';
+    const first = modal.querySelector('input, textarea, button');
+    if (first && first.focus) first.focus();
 }
 
 function closePresetModal() {
-    document.getElementById('preset-modal').style.display = 'none';
+    const modal = document.getElementById('preset-modal');
+    if (modal.style.display === 'none') return;
+    modal.style.display = 'none';
+    if (_modalReturnFocus && _modalReturnFocus.focus) _modalReturnFocus.focus();
+}
+
+function resetPresets() {
+    if (!confirm('すべてのモデルプリセットを初期値に戻しますか？')) return;
+    state.presets = defaultPresets();
+    try { localStorage.removeItem(LS.presets); } catch (e) { /* ignore */ }
+    renderPresetEditor();
+    refreshOutputs();
 }
 
 // ---------------------------------------------------------------------------
@@ -740,7 +1025,6 @@ function updateNsfwUI() {
     const posBadge = document.querySelector('.positive-badge');
     if (nsfwTabBtn) nsfwTabBtn.style.display = state.nsfwMode ? 'inline-block' : 'none';
     if (posBadge) {
-        posBadge.textContent = state.nsfwMode ? 'NSFW Mode' : 'SFW';
         posBadge.className = 'badge positive-badge' + (state.nsfwMode ? ' nsfw-mode' : '');
     }
     if (state.nsfwMode === false && document.getElementById('nsfw-tab-btn')?.classList.contains('active')) {
@@ -753,7 +1037,9 @@ function updateCharSlotUI() {
     if (!bar) return;
     bar.style.display = state.multiChar ? 'flex' : 'none';
     bar.querySelectorAll('.char-slot-pill').forEach(pill => {
-        pill.classList.toggle('active', Number(pill.dataset.slot) === state.activeSlot);
+        const on = Number(pill.dataset.slot) === state.activeSlot;
+        pill.classList.toggle('active', on);
+        pill.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
 }
 
@@ -781,18 +1067,45 @@ function saveSettings() {
 }
 
 // ---------------------------------------------------------------------------
+// Clipboard
+// ---------------------------------------------------------------------------
+function copyText(text) {
+    const fallback = () => new Promise((resolve, reject) => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+        document.body.removeChild(ta);
+        ok ? resolve() : reject(new Error('execCommand failed'));
+    });
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text).catch(fallback);
+    }
+    return fallback();
+}
+
+// ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
     // ----- load persisted state -----
-    state.presets = loadJSON(LS.presets, null) || (window.MODEL_PRESETS || []).map(p => ({ ...p }));
-    const settings = loadJSON(LS.settings, {});
-    state.modelId = settings.modelId || (state.presets[0] && state.presets[0].id) || 'illustrious';
+    state.presets = mergePresets(loadJSON(LS.presets, null));
+    const settings = loadJSON(LS.settings, {}) || {};
+    state.modelId = state.presets.some(p => p.id === settings.modelId)
+        ? settings.modelId : ((state.presets[0] && state.presets[0].id) || 'illustrious');
     state.nsfwMode = !!settings.nsfwMode;
     state.ratingAuto = settings.ratingAuto !== false;
     state.qualityAuto = settings.qualityAuto !== false;
     state.multiChar = !!settings.multiChar;
-    state.favorites = loadJSON(LS.favorites, []);
+    const favs = loadJSON(LS.favorites, []);
+    state.favorites = Array.isArray(favs) ? favs : [];
+    const favTags = loadJSON(LS.favTags, []);
+    state.favTags = Array.isArray(favTags) ? favTags.filter(t => t && t.cat && t.prompt) : [];
 
     // ----- render static UI -----
     updatePresetSelectOptions();
@@ -801,29 +1114,43 @@ document.addEventListener('DOMContentLoaded', () => {
     syncControlsFromState();
     refreshOutputs();
 
-    // ----- tabs -----
-    const tabBtns = document.querySelectorAll('.tab-btn');
+    // ----- tabs (click + arrow-key navigation) -----
+    const tabBtns = [...document.querySelectorAll('.tab-btn')];
     const tabPanels = document.querySelectorAll('.tab-panel');
+    const selectTab = (btn) => {
+        tabBtns.forEach(b => {
+            b.classList.remove('active');
+            b.setAttribute('aria-selected', 'false');
+            b.tabIndex = -1;
+        });
+        tabPanels.forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+        btn.tabIndex = 0;
+        document.getElementById(`panel-${btn.getAttribute('data-tab')}`).classList.add('active');
+    };
     tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            tabBtns.forEach(b => {
-                b.classList.remove('active');
-                b.setAttribute('aria-selected', 'false');
-            });
-            tabPanels.forEach(p => p.classList.remove('active'));
-            btn.classList.add('active');
-            btn.setAttribute('aria-selected', 'true');
-            document.getElementById(`panel-${btn.getAttribute('data-tab')}`).classList.add('active');
+        btn.tabIndex = btn.classList.contains('active') ? 0 : -1;
+        btn.addEventListener('click', () => selectTab(btn));
+        btn.addEventListener('keydown', (e) => {
+            if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+            const visible = tabBtns.filter(b => b.style.display !== 'none');
+            const i = visible.indexOf(btn);
+            const next = visible[(i + (e.key === 'ArrowRight' ? 1 : -1) + visible.length) % visible.length];
+            selectTab(next);
+            next.focus();
+            e.preventDefault();
         });
     });
 
-    // ----- search -----
+    // ----- search (filters in place, no re-render) -----
     const searchInput = document.getElementById('tag-search-input');
     if (searchInput) {
-        searchInput.addEventListener('input', () => renderCategories());
+        searchInput.addEventListener('input', applySearchFilter);
         document.getElementById('tag-search-clear')?.addEventListener('click', () => {
             searchInput.value = '';
-            renderCategories();
+            applySearchFilter();
+            searchInput.focus();
         });
     }
 
@@ -864,6 +1191,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pill.addEventListener('click', () => {
             state.activeSlot = Number(pill.dataset.slot);
             updateCharSlotUI();
+            syncTagButtons();
         });
     });
 
@@ -873,8 +1201,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // ----- preset modal -----
     document.getElementById('preset-edit-btn')?.addEventListener('click', openPresetModal);
     document.getElementById('preset-modal-close')?.addEventListener('click', closePresetModal);
+    document.getElementById('preset-reset-btn')?.addEventListener('click', resetPresets);
     document.getElementById('preset-modal')?.addEventListener('click', (e) => {
         if (e.target.id === 'preset-modal') closePresetModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        const modal = document.getElementById('preset-modal');
+        if (!modal || modal.style.display === 'none') return;
+        if (e.key === 'Escape') { closePresetModal(); return; }
+        if (e.key === 'Tab') { // keep focus inside the dialog
+            const f = [...modal.querySelectorAll('button, input, textarea, select')];
+            if (f.length === 0) return;
+            const first = f[0], last = f[f.length - 1];
+            if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
+            else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
+        }
     });
 
     // ----- recommended negative quick-add -----
@@ -902,20 +1243,18 @@ document.addEventListener('DOMContentLoaded', () => {
         inputEl.value = '';
         refreshOutputs();
     };
+    // keydown + isComposing: Enter that confirms Japanese IME input must not submit
+    const onEnter = (fn) => (e) => {
+        if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); fn(); }
+    };
     document.getElementById('add-manual-positive-btn')?.addEventListener('click', () => handleManualAdd('manual-positive-input', false));
-    document.getElementById('manual-positive-input')?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleManualAdd('manual-positive-input', false);
-    });
+    document.getElementById('manual-positive-input')?.addEventListener('keydown', onEnter(() => handleManualAdd('manual-positive-input', false)));
     document.getElementById('add-manual-negative-btn')?.addEventListener('click', () => handleManualAdd('manual-negative-input', true));
-    document.getElementById('manual-negative-input')?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleManualAdd('manual-negative-input', true);
-    });
+    document.getElementById('manual-negative-input')?.addEventListener('keydown', onEnter(() => handleManualAdd('manual-negative-input', true)));
 
     // ----- favorites -----
     document.getElementById('save-favorite-btn')?.addEventListener('click', saveFavorite);
-    document.getElementById('favorite-name-input')?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') saveFavorite();
-    });
+    document.getElementById('favorite-name-input')?.addEventListener('keydown', onEnter(saveFavorite));
     document.getElementById('export-favorites-btn')?.addEventListener('click', exportFavorites);
     document.getElementById('import-favorites-btn')?.addEventListener('click', () => {
         document.getElementById('import-favorites-file')?.click();
@@ -928,34 +1267,35 @@ document.addEventListener('DOMContentLoaded', () => {
     // ----- clear buttons -----
     document.getElementById('clear-positive-btn')?.addEventListener('click', () => {
         for (let i = 0; i <= 3; i++) state.slots[i].clear();
-        state.tagElements.forEach(btn => {
-            if (!btn.closest('#panel-negative')) btn.classList.remove('active');
-        });
         refreshOutputs();
     });
     document.getElementById('clear-negative-btn')?.addEventListener('click', () => {
         state.negativeTags.clear();
-        state.tagElements.forEach(btn => {
-            if (btn.closest('#panel-negative')) btn.classList.remove('active');
-        });
         refreshOutputs();
     });
 
     // ----- copy -----
     const handleCopy = (btnEl, textValue) => {
         if (!textValue) return;
-        navigator.clipboard.writeText(textValue).then(() => {
-            btnEl.classList.add('copied');
-            const copyText = btnEl.querySelector('.copy-text');
-            const successText = btnEl.querySelector('.copy-success-text');
-            copyText.style.display = 'none';
+        const copyTextEl = btnEl.querySelector('.copy-text');
+        const successText = btnEl.querySelector('.copy-success-text');
+        const show = (msg, cls) => {
+            btnEl.classList.add(cls);
+            copyTextEl.style.display = 'none';
+            successText.textContent = msg;
             successText.style.display = 'inline';
             setTimeout(() => {
-                btnEl.classList.remove('copied');
-                copyText.style.display = 'inline';
+                btnEl.classList.remove(cls);
+                copyTextEl.style.display = 'inline';
                 successText.style.display = 'none';
             }, 2000);
-        }).catch(err => console.error('copy failed', err));
+        };
+        copyText(textValue)
+            .then(() => show('コピー完了！', 'copied'))
+            .catch(err => {
+                console.error('copy failed', err);
+                show('コピー失敗', 'copy-failed');
+            });
     };
     document.getElementById('copy-positive-btn')?.addEventListener('click', (e) => {
         handleCopy(e.currentTarget, document.getElementById('positive-prompt-output').value);
@@ -970,11 +1310,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const moonIcon = themeToggleBtn.querySelector('.theme-icon-moon');
     const applyTheme = (theme) => {
         document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem(LS.theme, theme);
+        saveString(LS.theme, theme);
         sunIcon.style.display = theme === 'light' ? 'none' : 'inline';
         moonIcon.style.display = theme === 'light' ? 'inline' : 'none';
     };
-    applyTheme(localStorage.getItem(LS.theme)
+    applyTheme(loadString(LS.theme)
         || (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'));
     themeToggleBtn.addEventListener('click', () => {
         const cur = document.documentElement.getAttribute('data-theme');

@@ -49,12 +49,15 @@ const shim = `
 ;globalThis.__T = {
     state, countTokens, applyWeight, assemblePositive, assembleNegative,
     randomize, serializeSelection, restoreSelection, currentPreset,
-    CHAR_SCOPED_SLOTS, LS,
+    CHAR_SCOPED_SLOTS, LS, countTokenChunks, mergePresets, mergeImportedFavorites,
+    favTagsForSection, isFavTag, tagDefault, categoryById, toggleTag,
 };
 `;
 (0, eval)(appSrc + shim);
 const { state, countTokens, applyWeight, assemblePositive, assembleNegative,
-        randomize, serializeSelection, restoreSelection } = globalThis.__T;
+        randomize, serializeSelection, restoreSelection, countTokenChunks, mergePresets,
+        mergeImportedFavorites, favTagsForSection, isFavTag, tagDefault, categoryById,
+        toggleTag } = globalThis.__T;
 
 let pass = 0, fail = 0;
 function check(name, cond, extra) {
@@ -266,6 +269,78 @@ check('serialize->JSON round-trips', JSON.parse(json).modelId === snap.modelId);
 restoreSelection(JSON.parse(json));
 check('restore keeps modelId', state.modelId === snap.modelId);
 check('restore keeps tags', [...state.slots[0].keys()].length > 0);
+
+// ---- regression: bugs fixed in v2.1 ----
+console.log('Regressions:');
+const clearAll = () => { state.slots.forEach(m => m.clear()); state.negativeTags.clear(); };
+clearAll();
+state.multiChar = false;
+state.nsfwMode = true;
+state.modelId = 'illustrious';
+state.slots[0].set('1girl', { weight: 1.0, locked: false, cat: 'subject' });
+state.slots[0].set('uncensored', { weight: 1.0, locked: false, cat: 'n_nsfw' });
+pos = assemblePositive();
+check('n_nsfw tag reaches the prompt', pos.split(', ').includes('uncensored'), pos);
+check('n_nsfw tag sits right after rating', pos.indexOf('nsfw, uncensored') >= 0, pos);
+state.multiChar = true;
+pos = assemblePositive();
+check('n_nsfw tag kept in multi-char mode', pos.split(', ').includes('uncensored'), pos);
+state.multiChar = false;
+
+// tags whose slot is missing from a (stale) template are never dropped
+const illPreset = state.presets.find(p => p.id === 'illustrious');
+const savedTpl = illPreset.template;
+illPreset.template = savedTpl.filter(s => s !== 'rating_adj');
+pos = assemblePositive();
+check('unknown slot falls back instead of vanishing', pos.split(', ').includes('uncensored'), pos);
+illPreset.template = savedTpl;
+state.nsfwMode = false;
+clearAll();
+
+// every category's slot is in every preset template
+const tplAll = global.window.MODEL_PRESETS.every(p =>
+    [...global.window.PROMPTS_DATA.sfw, ...global.window.PROMPTS_DATA.nsfw]
+        .every(c => p.template.includes(c.slot)));
+check('all category slots covered by templates', tplAll);
+
+// CSV weight column is honoured
+const fakeCat = { id: 'x', tags: [{ prompt: 'a', weight: 1.2 }, { prompt: 'b', weight: null }] };
+check('csv weight used as default', tagDefault(fakeCat, 'a') === 1.2);
+check('missing csv weight -> 1.0', tagDefault(fakeCat, 'b') === 1.0);
+
+// BREAK-aware token chunks
+const ch = countTokenChunks('1girl, smile, BREAK, 1boy, frown');
+check('BREAK splits token chunks', ch.length === 2 && ch[0] > 0 && ch[1] > 0, JSON.stringify(ch));
+check('no BREAK -> single chunk', countTokenChunks('1girl, smile').length === 1);
+
+// stored presets: user edits kept, template always from build
+const merged = mergePresets([{ id: 'illustrious', quality: ['foo'], template: ['subject'] }]);
+const ill = merged.find(p => p.id === 'illustrious');
+check('preset merge keeps user quality edit', ill.quality.join() === 'foo');
+check('preset merge ignores stale template', ill.template.includes('rating_adj'));
+check('preset merge keeps all build presets', merged.length === global.window.MODEL_PRESETS.length);
+
+// favourites import: legacy array + v2 object, name collisions
+state.favorites = []; state.favTags = [];
+let r = mergeImportedFavorites([{ name: 'A', data: { slots: [] } }, { name: 'A', data: { slots: [] } }]);
+check('legacy array import', r.added === 2 && state.favorites[1].name === 'A (2)', JSON.stringify(state.favorites.map(f => f.name)));
+r = mergeImportedFavorites({ favorites: [{ name: 'B', data: {} }, { name: 'bad' }],
+    favoriteTags: [{ cat: 'hair', prompt: 'long hair', japanese: 'ロングヘア' }, { cat: 'hair', prompt: 'long hair' }] });
+check('v2 import adds favourites + tags, skips invalid/dupes', r.added === 1 && r.addedTags === 1);
+let threw = false; try { mergeImportedFavorites('x'); } catch (e) { threw = true; }
+check('invalid import rejected', threw);
+
+// favourite tags
+check('isFavTag', isFavTag('hair', 'long hair'));
+check('favTagsForSection resolves sfw tag', favTagsForSection('sfw').some(e => e.item.prompt === 'long hair'));
+check('favTagsForSection filters other sections', favTagsForSection('nsfw').length === 0);
+state.favTags.push({ cat: 'hair', prompt: 'no such tag' });
+check('stale favourite tag ignored', favTagsForSection('sfw').length === 1);
+
+// restore sanitises imported data
+restoreSelection({ modelId: 'deleted-model', slots: [{ x: { weight: 'abc', cat: 'hair' } }] });
+check('restore ignores unknown modelId', state.presets.some(p => p.id === state.modelId));
+check('restore sanitises weight', state.slots[0].get('x').weight === 1.0);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

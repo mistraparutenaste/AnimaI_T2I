@@ -94,6 +94,11 @@ SLOT_BY_CATEGORY = {
     "negative_prompt": "negative",
 }
 
+# Slot order of the final prompt. "rating_adj" holds NSFW base tags
+# (uncensored, nude, ...) right after the rating tag.
+TEMPLATE = ["subject", "character", "rating", "rating_adj", "appearance", "clothing",
+            "composition", "background", "effect", "quality", "era"]
+
 # Model presets: quality tags, era tag, rating policy, slot template.
 # Sources: Illustrious/NoobAI recommended prompts (Civitai/HF model cards),
 # Animagine XL 4.0 official model card.
@@ -105,8 +110,7 @@ MODEL_PRESETS = [
         "era": "newest",
         "negativeBase": "lowres, worst quality, bad quality, bad anatomy, bad proportions, watermark, signature",
         "ratingAuto": True,
-        "template": ["subject", "character", "rating", "appearance", "clothing",
-                      "composition", "background", "effect", "quality", "era"],
+        "template": TEMPLATE,
     },
     {
         "id": "noobai",
@@ -116,8 +120,7 @@ MODEL_PRESETS = [
         "era": None,
         "negativeBase": "lowres, worst quality, bad quality, bad anatomy, bad proportions, watermark, signature",
         "ratingAuto": True,
-        "template": ["subject", "character", "rating", "appearance", "clothing",
-                      "composition", "background", "effect", "quality", "era"],
+        "template": TEMPLATE,
     },
     {
         "id": "animagine",
@@ -126,8 +129,7 @@ MODEL_PRESETS = [
         "era": "newest",
         "negativeBase": "lowres, bad anatomy, bad hands, text, error, missing finger, extra digits, fewer digits, cropped, worst quality, low quality, low score, bad score, average score, signature, watermark, username, blurry",
         "ratingAuto": True,  # rating REQUIRED on Animagine
-        "template": ["subject", "character", "rating", "appearance", "clothing",
-                      "composition", "background", "effect", "quality", "era"],
+        "template": TEMPLATE,
     },
     {
         "id": "custom",
@@ -136,8 +138,7 @@ MODEL_PRESETS = [
         "era": None,
         "negativeBase": "",
         "ratingAuto": False,
-        "template": ["subject", "character", "rating", "appearance", "clothing",
-                      "composition", "background", "effect", "quality", "era"],
+        "template": TEMPLATE,
     },
 ]
 

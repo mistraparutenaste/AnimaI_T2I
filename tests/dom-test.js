@@ -152,6 +152,51 @@ setTimeout(() => {
     document.getElementById('preset-modal-close').click();
     check('preset modal closes', document.getElementById('preset-modal').style.display === 'none');
 
+    // --- favorite tags ---
+    document.getElementById('multichar-toggle').checked = false;
+    document.getElementById('multichar-toggle').dispatchEvent(new window.Event('change'));
+    document.getElementById('clear-positive-btn').click();
+    const findTagItem = (root, en) => [...root.querySelectorAll('.prompt-tag-item')]
+        .find(w => w.querySelector('.en-name').textContent === en);
+    const smileItem = findTagItem(document.querySelector('#sfw-categories .category-card[data-cat="expression"]'), 'smile');
+    check('tag has favorite star', !!(smileItem && smileItem.querySelector('.tag-fav-btn')));
+    smileItem.querySelector('.tag-fav-btn').click();
+    const favCard = document.querySelector('#sfw-categories .category-card.fav-card');
+    check('favorite-tags card pinned on top', favCard && favCard === document.querySelector('#sfw-categories .category-card'));
+    findTagItem(favCard, 'smile').querySelector('.prompt-tag').click();
+    const posF = document.getElementById('positive-prompt-output').value;
+    check('clicking favorite tag selects it', posF.split(', ').includes('smile'), posF);
+    const origSmile = findTagItem(document.querySelector('#sfw-categories .category-card[data-cat="expression"]'), 'smile');
+    check('original button shows active too', origSmile.querySelector('.prompt-tag').classList.contains('active'));
+    findTagItem(favCard, 'smile').querySelector('.tag-fav-btn').click();
+    check('unfavorite removes card', !document.querySelector('#sfw-categories .fav-card'));
+
+    // --- search opens matching collapsed categories ---
+    document.getElementById('tag-search-input').value = 'ツインテール';
+    document.getElementById('tag-search-input').dispatchEvent(new window.Event('input'));
+    const hairCardS = document.querySelector('#sfw-categories .category-card[data-cat="hair"]');
+    check('search auto-opens matching category', hairCardS.classList.contains('search-open'));
+    const hiddenOthers = [...hairCardS.querySelectorAll('.prompt-tag-item')].filter(w => w.hidden).length;
+    check('non-matching tags hidden', hiddenOthers > 0, hiddenOthers);
+    document.getElementById('tag-search-input').value = '';
+    document.getElementById('tag-search-input').dispatchEvent(new window.Event('input'));
+    check('clearing search closes it again', !hairCardS.classList.contains('search-open'));
+
+    // --- NSFW base tag reaches output (rating_adj slot) ---
+    const nsfwBase = findTagItem(document.querySelector('#nsfw-categories .category-card[data-cat="n_nsfw"]'), 'uncensored');
+    nsfwBase.querySelector('.prompt-tag').click();
+    const posN = document.getElementById('positive-prompt-output').value;
+    check('n_nsfw tag in output via UI', posN.split(', ').includes('uncensored'), posN);
+
+    // --- modal: Esc closes, reset button exists ---
+    document.getElementById('preset-edit-btn').click();
+    check('preset reset button present', !!document.getElementById('preset-reset-btn'));
+    document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' }));
+    check('Esc closes preset modal', document.getElementById('preset-modal').style.display === 'none');
+
+    // --- category title is keyboard-focusable button ---
+    check('category title is a button', document.querySelector('.category-title').tagName === 'BUTTON');
+
     console.log(`\n${pass} passed, ${fail} failed`);
     process.exit(fail ? 1 : 0);
 }, 300);

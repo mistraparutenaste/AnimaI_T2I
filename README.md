@@ -2,7 +2,7 @@
   <img src="logo.png" alt="AnimaI T2I Logo" width="400" />
 </div>
 
-# AnimaI T2I v2
+# AnimaI T2I v2.1
 
 画像生成AIのプロンプトをクリックだけで構築できるツールです。**単一HTMLファイル**で動作し、サーバー不要。
 
@@ -21,11 +21,12 @@ Danbooruタグ文化に基づく**モデル別プロンプト最適化**(Illustr
 | 自動ソートエンジン | 選択タグをモデル別の最適順(主体→キャラ→レーティング→容姿→衣装→構図→背景→品質→年代)に自動並び替え |
 | レーティング自動挿入 | NSFWトグルに連動して `safe` / `nsfw` を自動挿入(設定でOFF可) |
 | 重み構文 | 選択タグチップの +/− で `(tag:1.2)` 形式の重みを調整 |
-| トークンカウンタ | CLIP 77トークン上限の概算をリアルタイム表示・警告 |
+| トークンカウンタ | CLIP 75トークン上限の概算をリアルタイム表示・警告(BREAK区切りはブロックごとに計算) |
 | 複数キャラ | 最大3キャラのスロット分割 → `BREAK` 区切りで出力(Forge Couple / REGION対応) |
 | おまかせ生成 🎲 | カテゴリ単位のランダム抽選。🔒ロックしたタグは引き継ぎ |
-| 検索 | 日本語・英語の部分一致でタグを絞り込み |
-| お気に入り | localStorage保存 + JSONエクスポート/インポート |
+| 検索 | 日本語・英語の部分一致でタグを絞り込み。一致したカテゴリは自動で開く |
+| お気に入り | 選択状態をまるごと保存。localStorage保存 + JSONエクスポート/インポート |
+| お気に入りタグ ★ | 各タグの ☆ (または選択中チップの ☆) で登録すると、各タブ先頭の「★ お気に入りタグ」にピン留め。エクスポートにも含まれます |
 
 ## タグデータの編集
 
@@ -57,14 +58,14 @@ Japanese,Prompt,weight(省略可)
 CSVを編集したら以下を実行して `prompts-data.js` と `dist/AnimaI.html` を再生成:
 
 ```bash
-python3 build.py
+python3 build.py   # Windows では python build.py (または npm run build)
 ```
 
 ### テスト
 
 ```bash
 npm install            # 初回のみ (jsdom)
-npm test               # logic 40件 + DOM 30件
+npm test               # ビルド後に logic + DOM テストを実行
 npm run audit          # CSV監査(重複・欠落・表記ゆれ)
 ```
 

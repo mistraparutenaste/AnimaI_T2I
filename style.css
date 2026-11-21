@@ -216,6 +216,21 @@ textarea:disabled {
     color: var(--color-ok-ink);
 }
 
+.btn-copy.copy-failed {
+    background: var(--color-danger);
+    border-color: var(--color-danger);
+    color: var(--color-paper);
+}
+
+.chip button.chip-fav.is-fav {
+    color: var(--color-lock);
+}
+
+.modal-header-actions {
+    display: flex;
+    gap: var(--space-2xs);
+}
+
 /* Theme toggle */
 .theme-toggle-btn {
     background: transparent;
@@ -424,6 +439,12 @@ textarea:disabled {
 }
 
 .category-title {
+    width: 100%;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--color-rule);
+    text-align: left;
+    font-family: inherit;
     font-size: var(--text-lg);
     font-weight: 700;
     padding: var(--space-xs) var(--space-sm);
@@ -473,6 +494,38 @@ textarea:disabled {
     grid-template-rows: 0fr;
 }
 
+/* an active search opens categories that have matches */
+.category-card.collapsed.search-open .category-body {
+    grid-template-rows: 1fr;
+}
+
+.category-card.collapsed.search-open .category-body-inner {
+    padding-top: var(--space-sm);
+    padding-bottom: var(--space-sm);
+}
+
+.category-card.collapsed.search-open .category-title::after {
+    transform: none;
+}
+
+.category-card.search-empty {
+    opacity: 0.5;
+}
+
+.category-count {
+    font-weight: 400;
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+}
+
+.fav-card {
+    border-color: color-mix(in oklch, var(--color-lock) 55%, var(--color-rule));
+}
+
+.fav-card .category-title-text {
+    color: var(--color-lock);
+}
+
 .category-body-inner {
     min-height: 0;
     padding: var(--space-sm) var(--space-sm);
@@ -485,6 +538,60 @@ textarea:disabled {
 .category-card.collapsed .category-body-inner {
     padding-top: 0;
     padding-bottom: 0;
+}
+
+/* --- Tag item: pill + favorite star --- */
+.prompt-tag-item {
+    position: relative;
+    display: inline-flex;
+}
+
+.prompt-tag-item[hidden] {
+    display: none;
+}
+
+.tag-fav-btn {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--color-rule);
+    background: var(--color-paper-2);
+    color: var(--color-text-secondary);
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--dur-micro) var(--ease-out);
+}
+
+.prompt-tag-item:hover .tag-fav-btn,
+.tag-fav-btn:focus-visible,
+.tag-fav-btn.is-fav {
+    opacity: 1;
+}
+
+.tag-fav-btn.is-fav {
+    color: var(--color-lock);
+    border-color: var(--color-lock);
+}
+
+.tag-fav-btn:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 1px;
+}
+
+@media (hover: none) {
+    .tag-fav-btn { opacity: 0.6; }
+}
+
+/* selected in another character slot (multi-char mode) */
+.prompt-tag.in-other-slot {
+    border-style: dashed;
+    border-color: var(--color-accent-rule);
 }
 
 /* --- Tag buttons (flat pills) --- */
